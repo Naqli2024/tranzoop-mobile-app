@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
 
 class ViewFuelBill extends StatefulWidget {
   final String fuelBill;
@@ -62,7 +62,7 @@ class _ViewFuelBillState extends State<ViewFuelBill> {
       backgroundColor: AppColors.primary,
       appBar: basicWidgets.buildAppBarWithRadius(
         context: context,
-        title: 'Fuel Bill',
+        title: 'Bill',
       ),
 
       floatingActionButton: FloatingActionButton.extended(

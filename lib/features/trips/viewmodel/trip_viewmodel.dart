@@ -1,17 +1,13 @@
 import 'dart:convert';
+import 'package:bizoop_driver_app/features/trips/model/customer_model.dart';
 import 'package:flutter/material.dart';
-import 'package:tranzoop_mobile_app/core/utils/shared_preferences.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/driver_model.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/service/home_api_service.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/customer_model.dart';
-import 'package:tranzoop_mobile_app/features/loading_unloading/model/loading_unloading_model.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/trip_model.dart';
-import 'package:tranzoop_mobile_app/features/trips/service/customer_api_service.dart';
-import 'package:tranzoop_mobile_app/features/trips/service/trip_api_service.dart';
+import 'package:bizoop_driver_app/core/utils/shared_preferences.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/driver_model.dart';
+import 'package:bizoop_driver_app/features/trips/model/trip_model.dart';
+import 'package:bizoop_driver_app/features/trips/service/trip_api_service.dart';
 
 class TripViewModel extends ChangeNotifier {
   final TripApiService _service = TripApiService();
-  final CustomerApiService _customerService = CustomerApiService();
   final SharedPrefService _pref = SharedPrefService();
 
   bool isLoading = false;
@@ -24,11 +20,12 @@ class TripViewModel extends ChangeNotifier {
   Future<void> fetchTrip(String tripId) async {
     try {
       isLoading = true;
+      errorMessage = "";
       notifyListeners();
 
       final token = await _pref.getToken();
 
-      if (token == null) {
+      if (token == null || token.isEmpty) {
         errorMessage = "Token not found";
         return;
       }
@@ -37,17 +34,26 @@ class TripViewModel extends ChangeNotifier {
         endpoint: tripId,
         token: token,
       );
-      final data = jsonDecode(response.body);
-      if (response.statusCode == 200) {
-        trip = TripDetails.fromJson(jsonDecode(response.body));
-        if (trip?.data != null && trip!.data.journeyLegs.isNotEmpty) {
-          final currentLegNo = trip!.data.currentLeg;
 
-          final currentLeg = trip!.data.journeyLegs.firstWhere((leg) => leg.legNo == currentLegNo,
-            orElse: () => trip!.data.journeyLegs.first,
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200) {
+        trip = TripDetails.fromJson(data);
+
+        final tripData = trip?.data;
+
+        if (tripData != null && tripData.journeyLegs.isNotEmpty) {
+          final currentLegNo = tripData.currentLeg;
+
+          final currentLeg = tripData.journeyLegs.firstWhere(
+                (leg) => leg.legNo == currentLegNo,
+            orElse: () => tripData.journeyLegs.first,
           );
 
-          customer = await _customerService.getCustomer(currentLeg.customerId);
+          // customerId is already a populated Customer object
+          customer = currentLeg.customerId;
+        } else {
+          customer = null;
         }
       } else {
         errorMessage = data["message"] ?? "Unable to fetch trip";
@@ -61,8 +67,7 @@ class TripViewModel extends ChangeNotifier {
   }
 
   Future<bool> startTrip(
-      String tripId,
-      StartTripRequest request,
+      String tripId
       ) async {
     try {
       isLoading = true;
@@ -78,7 +83,6 @@ class TripViewModel extends ChangeNotifier {
       final response = await _service.startTrip(
         tripId: tripId,
         token: token,
-        request: request,
       );
 
       final data = jsonDecode(response.body);
@@ -279,7 +283,9 @@ class TripViewModel extends ChangeNotifier {
             jsonDecode(response.body),
           );
 
-          trips.add(trip.data);
+          if (trip.data != null) {
+            trips.add(trip.data!);
+          }
         }
       }
     } catch (e) {

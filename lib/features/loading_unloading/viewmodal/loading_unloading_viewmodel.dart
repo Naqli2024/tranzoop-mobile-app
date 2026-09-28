@@ -1,12 +1,10 @@
 import 'dart:convert';
+import 'package:bizoop_driver_app/features/trips/model/customer_model.dart';
 import 'package:flutter/material.dart';
-import 'package:tranzoop_mobile_app/core/utils/shared_preferences.dart';
-import 'package:tranzoop_mobile_app/features/loading_unloading/service/loading_unloading_service.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/customer_model.dart';
-import 'package:tranzoop_mobile_app/features/loading_unloading/model/loading_unloading_model.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/trip_model.dart';
-import 'package:tranzoop_mobile_app/features/trips/service/customer_api_service.dart';
-import 'package:tranzoop_mobile_app/features/trips/service/trip_api_service.dart';
+import 'package:bizoop_driver_app/core/utils/shared_preferences.dart';
+import 'package:bizoop_driver_app/features/loading_unloading/service/loading_unloading_service.dart';
+import 'package:bizoop_driver_app/features/loading_unloading/model/loading_unloading_model.dart';
+import 'package:bizoop_driver_app/features/trips/model/trip_model.dart';
 
 class LoadingUnloadingViewmodel extends ChangeNotifier {
   final LoadingUnloadingService _loadingUnloadingService = LoadingUnloadingService();
@@ -95,4 +93,34 @@ class LoadingUnloadingViewmodel extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  Future<bool> loadingUnloadingExpense(
+      String tripId,
+      LoadingUnloadingExpenseRequest request,
+      ) async {
+    try {
+      isLoading = true;
+      notifyListeners();
+      final token = await _pref.getToken();
+
+      if (token == null) {
+        errorMessage = "Token not found";
+        return false;
+      }
+      final response = await _loadingUnloadingService.uploadLoadingUnloadingExpense(
+        tripId: tripId, token: token, request: request,
+      );
+      successMessage = response.message;
+      isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print(e);
+      errorMessage = e.toString();
+      isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
 }

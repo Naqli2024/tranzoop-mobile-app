@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
 
 class CommonSuccessScreen extends StatelessWidget {
   final String title;

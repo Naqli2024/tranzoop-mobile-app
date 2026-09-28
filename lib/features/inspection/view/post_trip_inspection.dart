@@ -3,16 +3,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/CommonSuccessScreen.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/shared_preferences.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/current_trip_model.dart';
-import 'package:tranzoop_mobile_app/features/inspection/model/inspection_model.dart';
-import 'package:tranzoop_mobile_app/features/inspection/viewmodel/inspection_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/trips/view/pickup_screen.dart';
-import 'package:tranzoop_mobile_app/features/trips/view/trip_completed_screen.dart';
+import 'package:bizoop_driver_app/core/CommonSuccessScreen.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/shared_preferences.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/current_trip_model.dart';
+import 'package:bizoop_driver_app/features/inspection/model/inspection_model.dart';
+import 'package:bizoop_driver_app/features/inspection/viewmodel/inspection_viewmodel.dart';
+import 'package:bizoop_driver_app/features/trips/view/pickup_screen.dart';
+import 'package:bizoop_driver_app/features/trips/view/trip_completed_screen.dart';
 
 class PostTripInspectionScreen extends StatefulWidget {
   final CurrentTrip trip;
@@ -124,21 +124,6 @@ class _PostTripInspectionScreenState extends State<PostTripInspectionScreen>
       final vm = context.read<InspectionViewModel>();
 
       await vm.fetchAllPostTripInspection(widget.trip.id);
-
-      if (!mounted) return;
-      // If inspection already completed successfully,
-      // open TripCompletedScreen directly.
-      if (vm.failedPostInspectionId == null) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => TripCompletedScreen(
-              trip: widget.trip,
-            ),
-          ),
-        );
-        return;
-      }
 
       final inspection = vm.postInspectionDetails?.data;
 
@@ -279,7 +264,7 @@ class _PostTripInspectionScreenState extends State<PostTripInspectionScreen>
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: viewUtil.isTablet ? 18 : 14,
-                          color: Colors.grey.shade700,
+                          color: Colors.white,
                         ),
                       ),
                     ],
@@ -371,7 +356,7 @@ class _PostTripInspectionScreenState extends State<PostTripInspectionScreen>
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: viewUtil.isTablet ? 15 : 12,
-              color: Colors.grey.shade600,
+              color: Colors.white,
             ),
           ),
       ],

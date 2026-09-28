@@ -1,14 +1,15 @@
+import 'package:bizoop_driver_app/features/trips/model/customer_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/current_trip_model.dart';
-import 'package:tranzoop_mobile_app/features/auth/viewmodel/auth_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/inspection/view/pre_trip_inspection.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/customer_model.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/trip_model.dart';
-import 'package:tranzoop_mobile_app/features/trips/viewmodel/trip_viewmodel.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/current_trip_model.dart';
+import 'package:bizoop_driver_app/features/auth/viewmodel/auth_viewmodel.dart';
+import 'package:bizoop_driver_app/features/homeScreen/viewmodel/home_viewmodel.dart';
+import 'package:bizoop_driver_app/features/inspection/view/pre_trip_inspection.dart';
+import 'package:bizoop_driver_app/features/trips/model/trip_model.dart';
+import 'package:bizoop_driver_app/features/trips/viewmodel/trip_viewmodel.dart';
 
 class NewTripsNotificationScreen extends StatefulWidget {
   final CurrentTrip trip;
@@ -24,7 +25,6 @@ class _NewTripsNotificationScreenState extends State<NewTripsNotificationScreen>
   BasicWidgets basicWidgets = BasicWidgets();
   late Animation<double> _animation;
   late AnimationController _animationController;
-  bool hasTrips = true;
 
   @override
   void initState() {
@@ -50,24 +50,21 @@ class _NewTripsNotificationScreenState extends State<NewTripsNotificationScreen>
   @override
   Widget build(BuildContext context) {
     final vm = context.watch<TripViewModel>();
-    return hasTrips
-        ? Scaffold(
+    final homeVm = context.watch<HomeViewModel>();
+    return Scaffold(
       appBar: basicWidgets.buildCommonAppBar(
         context: context,
         title: "New Trip Assigned",
       ),
-      body: _buildTripDetails(widget.trip,vm.trip?.data,vm.customer))
-        : Scaffold(
-      appBar: basicWidgets.buildCommonAppBar(
-        context: context,
-        title: "Trips",
-      ),
-      body: _buildNoTrip(),
+      body: vm.isLoading
+          ? basicWidgets.loading()
+          : _buildTripDetails(widget.trip, vm.trip?.data, vm.customer),
     );
   }
 
-  Widget _buildTripDetails(CurrentTrip trip,TripData? vm, Customer? customer) {
+  Widget _buildTripDetails(CurrentTrip trip, TripData? vm, Customer? customer) {
     ViewUtil viewUtil = ViewUtil(context);
+    final homeVm = context.watch<HomeViewModel>();
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -84,7 +81,7 @@ class _NewTripsNotificationScreenState extends State<NewTripsNotificationScreen>
             style: basicWidgets.coloredText(
               context,
               Colors.white,
-              viewUtil.isTablet ?20 :13,
+              viewUtil.isTablet ? 20 : 13,
               FontWeight.w500,
             ),
           ),
@@ -98,7 +95,10 @@ class _NewTripsNotificationScreenState extends State<NewTripsNotificationScreen>
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(color: Colors.grey.shade300),
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(.05), blurRadius: 10),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(.05),
+                    blurRadius: 10,
+                  ),
                 ],
               ),
               child: Column(
@@ -106,17 +106,20 @@ class _NewTripsNotificationScreenState extends State<NewTripsNotificationScreen>
                 children: [
                   _buildRow("Trip ID", trip.tripNo, isHeader: true),
                   const Divider(),
-                  _buildRow("Vehicle No", vm?.vehicle.regNo ??''),
+                  _buildRow("Vehicle No", vm?.vehicleId?.regNo ?? ''),
                   const Divider(),
-                  _buildRow("Vehicle Name", "${vm?.vehicle.make ?? ""} (${vm?.vehicle.model ?? ''})"),
+                  _buildRow(
+                    "Vehicle Name",
+                    "${vm?.vehicleId?.make ?? ""} (${vm?.vehicleId?.model ?? ''})",
+                  ),
                   const Divider(),
-                  _buildRow("Pickup", "${trip.origin.location}, ${trip.origin.city}"),
+                  _buildRow("Pickup", trip.currentJourneyLeg?.from ??''),
                   const Divider(),
-                  _buildRow("Delivery", "${trip.destination.location}, ${trip.destination.city}"),
+                  _buildRow("Delivery", trip.currentJourneyLeg?.to ??''),
                   const Divider(),
-                  _buildRow("Cargo", trip.commodity),
+                  _buildRow("Cargo", trip.currentJourneyLeg?.commodity ??''),
                   const Divider(),
-                  _buildRow("Weight", "${trip.weight} Ton"),
+                  _buildRow("Weight", "${trip.currentJourneyLeg?.weight ??''} ${trip.currentJourneyLeg?.uom ??''}"),
                   const Divider(),
                   _buildLocationRow(
                     "Customer Details",
@@ -124,98 +127,41 @@ class _NewTripsNotificationScreenState extends State<NewTripsNotificationScreen>
                     customer?.mobile.toString() ?? "",
                   ),
                   SizedBox(height: 5),
-                  _buildRow('Address', customer?.billingAddress ?? "N/A")
+                  _buildRow('Address', customer?.billingAddress ?? "N/A"),
                 ],
               ),
             ),
           ),
           const Spacer(),
-          basicWidgets.buildSlideActionButton(
-            context: context,
-            animation: _animation,
-            text: "Accept Order",
-            isTablet: viewUtil.isTablet,
-            outerColor: AppColors.btnColor,
-            innerColor: const Color(0xff6889da),
-            onSubmit: () {
-              Navigator.push(
+          basicWidgets.buildCommonButton(
+            context,
+            'Accept Order',
+            () async {
+              final success = await homeVm.startTracking();
+
+              if (!mounted) return;
+
+              if (!success) {
+                basicWidgets.error(
+                  context,
+                  homeVm.errorMessage,
+                );
+                return;
+              }
+
+              Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => PreTripInspectionScreen(trip: widget.trip),
+                  builder: (_) => PreTripInspectionScreen(
+                    trip: widget.trip,
+                  ),
                 ),
               );
             },
+            isLoading: homeVm.isLoading,
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
         ],
-      ),
-    );
-  }
-
-  Widget _buildNoTrip() {
-    ViewUtil viewUtil = ViewUtil(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 30),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              height: MediaQuery.sizeOf(context).height * 0.3,
-              width: MediaQuery.sizeOf(context).width,
-              child: Image.asset(
-                'assets/images/no_trips.png',
-                fit: BoxFit.contain,
-              ),
-            ),
-            // const SizedBox(height: 25),
-            Text(
-              "No Trips Assigned",
-              style: TextStyle(
-                fontSize: viewUtil.isTablet ?30 :22,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "You currently have no assigned trips.\nNew trip requests will appear here.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: viewUtil.isTablet ?20 :14, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 30),
-            GestureDetector(
-              onTap: () {
-                Navigator.pop(context);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.btnColor.withOpacity(.1),
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.arrow_back, color: AppColors.btnColor, size: 20),
-                    SizedBox(width: 4),
-                    Text(
-                      "Back",
-                      style: TextStyle(
-                        color: AppColors.btnColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: viewUtil.isTablet ?22 :14
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -227,13 +173,22 @@ class _NewTripsNotificationScreenState extends State<NewTripsNotificationScreen>
       children: [
         Text(
           label,
-          style: TextStyle(color: Colors.grey.shade600, fontSize: viewUtil.isTablet ?20 :12),
+          style: TextStyle(
+            color: Colors.grey.shade600,
+            fontSize: viewUtil.isTablet ? 20 : 12,
+          ),
         ),
         const SizedBox(height: 5),
         Text(
           value,
           style: TextStyle(
-            fontSize: isHeader ? viewUtil.isTablet ?18 :16 : viewUtil.isTablet ?20 :14,
+            fontSize: isHeader
+                ? viewUtil.isTablet
+                      ? 18
+                      : 16
+                : viewUtil.isTablet
+                ? 20
+                : 14,
             fontWeight: isHeader ? FontWeight.bold : FontWeight.w600,
           ),
         ),
@@ -251,20 +206,29 @@ class _NewTripsNotificationScreenState extends State<NewTripsNotificationScreen>
             children: [
               Text(
                 title,
-                style: TextStyle(color: Colors.grey.shade600, fontSize: viewUtil.isTablet ?20 :12),
+                style: TextStyle(
+                  color: Colors.grey.shade600,
+                  fontSize: viewUtil.isTablet ? 20 : 12,
+                ),
               ),
               const SizedBox(height: 5),
               Text(
                 location,
                 style: TextStyle(
-                  fontSize: viewUtil.isTablet ?20 :14,
+                  fontSize: viewUtil.isTablet ? 20 : 14,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
         ),
-        Text(time, style: TextStyle(fontWeight: FontWeight.w600, fontSize: viewUtil.isTablet ?18 :12)),
+        Text(
+          time,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: viewUtil.isTablet ? 18 : 12,
+          ),
+        ),
       ],
     );
   }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 class LoadingRequest {
   final DateTime loadingStartTime;
   final DateTime loadingEndTime;
@@ -21,21 +23,47 @@ class LoadingRequest {
   }
 }
 
+class LoadingUnloadingExpenseRequest {
+  final String expenseType;
+  final double amount;
+  final File? bill;
+
+  LoadingUnloadingExpenseRequest({
+    required this.expenseType,
+    required this.amount,
+    this.bill,
+  });
+}
+
+class LoadingUnloadingExpenseResponse {
+  final bool success;
+  final String message;
+
+  LoadingUnloadingExpenseResponse({
+    required this.success,
+    required this.message,
+  });
+
+  factory LoadingUnloadingExpenseResponse.fromJson(Map<String,dynamic> json){
+    return LoadingUnloadingExpenseResponse(
+      success: json["success"] ?? true,
+      message: json["message"] ?? "",
+    );
+  }
+}
+
 class UnloadingRequest {
-  final String odometer;
   final String unloadingBy;
   final String receiverName;
   final String receiverMobile;
 
   UnloadingRequest({
-    required this.odometer,
     required this.unloadingBy,
     required this.receiverName,
     required this.receiverMobile
   });
 
   Map<String, dynamic> toJson() => {
-    "odometer": odometer,
     "unloadingBy": unloadingBy,
     "receiverName": receiverName,
     "receiverMobile": receiverMobile,

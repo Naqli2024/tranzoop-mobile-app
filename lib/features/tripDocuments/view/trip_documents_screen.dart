@@ -3,14 +3,14 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:tranzoop_mobile_app/features/tripDocuments/view/view_documents_screen.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/trip_model.dart';
+import 'package:bizoop_driver_app/features/tripDocuments/view/view_documents_screen.dart';
+import 'package:bizoop_driver_app/features/trips/model/trip_model.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/tripDocuments/viewmodel/trip_document_viewmodel.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/tripDocuments/viewmodel/trip_document_viewmodel.dart';
 
 class TripDocumentsScreen extends StatefulWidget {
   final TripData trip;
@@ -74,20 +74,75 @@ class _TripDocumentsScreenState extends State<TripDocumentsScreen> {
       appBar: basicWidgets.buildAppBarWithRadius(
         context: context,
         title: "Trip Documents",
+        onBackPressed: () {
+          Navigator.pop(context);
+        }
       ),
       body: vm.isLoading
           ? Center(child: basicWidgets.loading())
+          : vm.documents.isEmpty
+          ? _buildNoDocuments()
           : ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: vm.documents.length,
           itemBuilder: (context, index) {
             final doc = vm.documents[index];
             return docCard(
-                doc.documentType,
+                doc.documentType.replaceAll("_", " "),
                 DateFormat("dd MMM yyyy, hh:mm a").format(doc.createdAt),
                 doc.fileUrl
             );
           }),
+    );
+  }
+
+  Widget _buildNoDocuments() {
+    final viewUtil = ViewUtil(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 30),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.description_outlined,
+                size: viewUtil.isTablet ? 80 : 60,
+                color: Colors.grey,
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            Text(
+              "No Trip Documents Found",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: viewUtil.isTablet ? 26 : 20,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+
+            const SizedBox(height: 8),
+
+            Text(
+              "There are no documents available for this trip.",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: viewUtil.isTablet ? 18 : 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

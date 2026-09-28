@@ -1,3 +1,5 @@
+import 'package:bizoop_driver_app/features/homeScreen/view/dashboard_screen.dart';
+import 'package:bizoop_driver_app/features/homeScreen/view/home_screen.dart';
 import 'package:cherry_toast/cherry_toast.dart';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:flutter/material.dart';
@@ -5,10 +7,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:loading_animation_widget/loading_animation_widget.dart';
 import 'package:slide_to_act/slide_to_act.dart';
-import 'package:tranzoop_mobile_app/core/utils/shared_preferences.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/features/auth/view/login_screen.dart';
+import 'package:bizoop_driver_app/core/utils/shared_preferences.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/features/auth/view/login_screen.dart';
 
 class BasicWidgets {
 
@@ -79,12 +81,19 @@ class BasicWidgets {
           ? GestureDetector(
         onTap: onBackPressed ??
                 () {
-              Navigator.pop(context);
+              dashboardIndex.value = 0;
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (_) => DashboardScreen()),
+                    (route) => false,
+              );
             },
-        child: Icon(Icons.arrow_back_outlined,size: viewUtil.isTablet ?30 :25),
+        child: Icon(
+          Icons.arrow_back_outlined,
+          size: viewUtil.isTablet ? 30 : 25,
+        ),
       )
           : Container(),
-
       title: Text(
         title,
         style: GoogleFonts.plusJakartaSans(
@@ -399,14 +408,14 @@ class BasicWidgets {
     required BuildContext context,
     required Animation<double> animation,
     required String text,
-    required VoidCallback onSubmit,
+    required Future<void> Function() onSubmit,
     bool isTablet = false,
     Color outerColor = Colors.blue,
     Color innerColor = const Color(0xff6889da),
   }) {
     ViewUtil viewUtil = ViewUtil(context);
     return Container(
-      margin: EdgeInsets.fromLTRB(20,0,20,MediaQuery.of(context).padding.bottom + 12),
+      margin: EdgeInsets.fromLTRB(18,0,18,0),
       child: SlideAction(
         height: viewUtil.isTablet ?80 :65,
         borderRadius: 12,
@@ -424,9 +433,8 @@ class BasicWidgets {
             return Transform.translate(
               offset: Offset(animation.value, 0),
               child: Icon(
-                Icons.arrow_forward_outlined,
+                Icons.arrow_forward,
                 color: Colors.white,
-                size: isTablet ? 30 : 20,
               ),
             );
           },
@@ -438,7 +446,7 @@ class BasicWidgets {
           fontWeight: FontWeight.w500,
         ),
         onSubmit: () async {
-          onSubmit();
+          await onSubmit();
           return null;
         },
       ),
@@ -478,6 +486,7 @@ class BasicWidgets {
   }
 
   void error(BuildContext context, String message) {
+    final cleanMessage = message.replaceFirst(RegExp(r'^Exception:\s*'), '');
     CherryToast.error(
       title: Text(
         'Error',
@@ -486,7 +495,7 @@ class BasicWidgets {
           fontWeight: FontWeight.bold,
         ),
       ),
-      action: Text(message, style: const TextStyle(color: Colors.black)),
+      action: Text(cleanMessage, style: const TextStyle(color: Colors.black)),
       animationDuration: const Duration(milliseconds: 800),
       borderRadius: 8,
     ).show(context);

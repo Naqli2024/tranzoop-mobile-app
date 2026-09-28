@@ -1,20 +1,22 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:maplibre_gl/maplibre_gl.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/CommonSuccessScreen.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/current_trip_model.dart';
-import 'package:tranzoop_mobile_app/features/auth/viewmodel/auth_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/viewmodel/home_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/loading_unloading/view/loading_screen.dart';
-import 'package:tranzoop_mobile_app/features/trips/service/route_service.dart';
-import 'package:tranzoop_mobile_app/features/trips/viewmodel/trip_viewmodel.dart';
+import 'package:bizoop_driver_app/core/CommonSuccessScreen.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/current_trip_model.dart';
+import 'package:bizoop_driver_app/features/auth/viewmodel/auth_viewmodel.dart';
+import 'package:bizoop_driver_app/features/homeScreen/viewmodel/home_viewmodel.dart';
+import 'package:bizoop_driver_app/features/loading_unloading/view/loading_screen.dart';
+import 'package:bizoop_driver_app/features/trips/service/route_service.dart';
+import 'package:bizoop_driver_app/features/trips/viewmodel/trip_viewmodel.dart';
+import 'dart:math' as math;
 
 class PickupScreen extends StatefulWidget {
   final CurrentTrip trip;
@@ -29,22 +31,30 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
   BasicWidgets basicWidgets = BasicWidgets();
   late Animation<double> _animation;
   late AnimationController _animationController;
-  MapLibreMapController? _mapController;
+  GoogleMapController? _mapController;
+  bool _mapReady = false;
+  Position? _currentPosition;
   LatLng? _currentLocation;
   LatLng? _pickupLocation;
+  StreamSubscription<Position>? _positionStream;
+  final Set<Marker> _markers = {};
+  final Set<Polyline> _polylines = {};
   List<LatLng> _routePoints = [];
   double _distance = 0;
   double _duration = 0;
-  Position? _currentPosition;
-  StreamSubscription<Position>? _positionStream;
   bool _cameraMoved = false;
-  Circle? _driverMarker;
-  Circle? _pickupMarker;
+  bool _routeLoaded = false;
+  bool _isDrawingRoute = false;
+  LatLng? _animatedPosition;
+  BitmapDescriptor? _driverIcon;
+
+  final googleApiKey = dotenv.env['GOOGLE_MAPS_API_KEY']!;
 
 
   @override
   void initState() {
     super.initState();
+    _loadMarker();
     _getCurrentLocation();
     _getPickupLocation();
     _animationController = AnimationController(
@@ -60,6 +70,8 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
   void dispose() {
     _positionStream?.cancel();
     _animationController.dispose();
+    _mapReady = false;
+    _mapController?.dispose();
     super.dispose();
   }
 
@@ -82,19 +94,19 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
             summaryItems: [
               SummaryItem(
                 label: "Pickup Location",
-                value: widget.trip.origin.location,
+                value: widget.trip.currentJourneyLeg?.from ??'',
               ),
               SummaryItem(
                 label: "Delivery Location",
-                value: widget.trip.destination.location,
+                value: widget.trip.currentJourneyLeg?.to ??'',
               ),
               SummaryItem(
                 label: "Cargo",
-                value: widget.trip.commodity,
+                value: widget.trip.currentJourneyLeg?.commodity ??'',
               ),
               SummaryItem(
                 label: "Weight",
-                value: widget.trip.weight.toString(),
+                value: '${widget.trip.currentJourneyLeg?.weight.toString() ?? ''}${widget.trip.currentJourneyLeg?.uom ?? ''}',
               ),
             ],
             nextScreen: LoadingScreen(trip: widget.trip),
@@ -103,6 +115,51 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
       );
     } else {
       basicWidgets.error(context, vm.errorMessage);
+    }
+  }
+
+  Future<void> _loadMarker() async {
+    _driverIcon = await BitmapDescriptor.asset(
+      const ImageConfiguration(size: Size(60, 60)),
+      "assets/images/dot_marker.png",
+    );
+  }
+
+  Future<void> _animateMarker(LatLng from,LatLng to) async {
+    const int steps = 30;
+
+    for (int i = 1; i <= steps; i++) {
+
+      final lat = from.latitude +
+          (to.latitude - from.latitude) * i / steps;
+
+      final lng = from.longitude +
+          (to.longitude - from.longitude) * i / steps;
+
+      _animatedPosition = LatLng(lat, lng);
+
+      _markers.removeWhere(
+            (m) => m.markerId.value == "driver",
+      );
+
+      _markers.add(
+        Marker(
+          markerId: const MarkerId("driver"),
+          position: _animatedPosition!,
+          icon: _driverIcon!,
+          rotation: _currentPosition?.heading ?? 0,
+          flat: true,
+          anchor: const Offset(0.5, 0.5),
+        ),
+      );
+
+      if (mounted) {
+        setState(() {});
+      }
+
+      await Future.delayed(
+        const Duration(milliseconds: 20),
+      );
     }
   }
 
@@ -131,34 +188,67 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
       ),
     ).listen((Position position) async {
 
+      if (!mounted) return;
+
       _currentPosition = position;
 
-      _currentLocation = LatLng(
+      final newPosition = LatLng(
         position.latitude,
         position.longitude,
       );
 
-      print("Current Location");
-      print(position.latitude);
-      print(position.longitude);
+      if (_animatedPosition == null) {
 
-      setState(() {});
+        _animatedPosition = newPosition;
 
-      if (_mapController != null) {
+        _markers.add(
+          Marker(
+            markerId: const MarkerId("driver"),
+            position: newPosition,
+            icon: _driverIcon!,
+            rotation: position.heading,
+            flat: true,
+            anchor: const Offset(0.5, 0.5),
+          ),
+        );
+
+        setState(() {});
+
+      } else {
+
+        await _animateMarker(
+          _animatedPosition!,
+          newPosition,
+        );
+
+      }
+
+      _currentLocation = newPosition;
+
+      if (!_routeLoaded && _pickupLocation != null) {
+        _routeLoaded = true;
+        await _drawRoute();
+      }
+
+      if (_mapController != null && _mapReady) {
         _mapController!.animateCamera(
-          CameraUpdate.newLatLng(_currentLocation!),
+          CameraUpdate.newCameraPosition(
+            CameraPosition(
+              target: _currentLocation!,
+              zoom: 18,
+              tilt: 60,
+              bearing: position.heading,
+            ),
+          ),
         );
       }
-      _drawRoute();
     });
   }
 
   Future<void> _getPickupLocation() async {
-    String address =
-        "${widget.trip.origin.location}, ${widget.trip.origin.city}, ${widget.trip.origin.state}";
+    final address = widget.trip.currentJourneyLeg?.from ??'';
 
-    List<Location> locations =
-    await locationFromAddress(address);
+    final locations = await locationFromAddress(address);
 
     if (locations.isNotEmpty) {
       _pickupLocation = LatLng(
@@ -166,82 +256,108 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
         locations.first.longitude,
       );
 
-      setState(() {});
+      if (_routePoints.isEmpty &&
+          !_routeLoaded &&
+          _currentLocation != null) {
+
+        await _drawRoute();
+        _routeLoaded = true;
+      }
     }
-    _drawRoute();
   }
 
   Future<void> _drawRoute() async {
     if (_currentLocation == null || _pickupLocation == null) return;
+    if (_isDrawingRoute) return;
+    _isDrawingRoute = true;
 
-    final result = await _routeService.getRoute(
-      startLat: _currentLocation!.latitude,
-      startLng: _currentLocation!.longitude,
-      endLat: _pickupLocation!.latitude,
-      endLng: _pickupLocation!.longitude,
-    );
+    try {
+      final result = await _routeService.getRoute(
+        startLat: _currentLocation!.latitude,
+        startLng: _currentLocation!.longitude,
+        endLat: _pickupLocation!.latitude,
+        endLng: _pickupLocation!.longitude,
+      );
 
-    if (result == null) return;
+      if (result == null) {
+        return;
+      }
+      if (!mounted) return;
 
-    final trip = result["trip"];
+      final route = (result["routes"] as List).first;
+      final leg = (route["legs"] as List).first;
+      final overviewPolyline = route["overview_polyline"]["points"];
 
-    final shape = trip["legs"][0]["shape"];
+      // distance/duration come back as {"value": <meters|seconds>, "text": ...}
+      _distance = (leg["distance"]["value"] as num) / 1000; // meters -> km
+      _duration = (leg["duration"]["value"] as num) / 60;   // seconds -> mins
 
-    final summary = trip["summary"];
+      _routePoints = _decodePolyline(overviewPolyline);
 
-    _distance = summary["length"].toDouble();
+      _polylines.clear();
 
-    _duration = summary["time"] / 60;
-
-    final decoded = _decodePolyline(shape);
-
-    _routePoints = decoded;
-
-    await _mapController?.clearLines();
-
-    await _mapController?.addLine(
-      LineOptions(
-        geometry: decoded,
-        lineColor: "#2962FF",
-        lineWidth: 5,
-      ),
-    );
-
-    await _addMarkers();
-    if (!_cameraMoved) {
-      _cameraMoved = true;
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngBounds(
-          LatLngBounds(
-            southwest: LatLng(
-              _currentLocation!.latitude < _pickupLocation!.latitude
-                  ? _currentLocation!.latitude
-                  : _pickupLocation!.latitude,
-              _currentLocation!.longitude < _pickupLocation!.longitude
-                  ? _currentLocation!.longitude
-                  : _pickupLocation!.longitude,
-            ),
-            northeast: LatLng(
-              _currentLocation!.latitude > _pickupLocation!.latitude
-                  ? _currentLocation!.latitude
-                  : _pickupLocation!.latitude,
-              _currentLocation!.longitude > _pickupLocation!.longitude
-                  ? _currentLocation!.longitude
-                  : _pickupLocation!.longitude,
-            ),
-          ),
-          left: 60,
-          top: 120,
-          right: 60,
-          bottom: 350,
+      _polylines.add(
+        Polyline(
+          polylineId: const PolylineId("route"),
+          points: _routePoints,
+          color: Colors.blue,
+          width: 5,
+          visible: true,
+          zIndex: 1,
+          geodesic: true,
+          startCap: Cap.roundCap,
+          endCap: Cap.roundCap,
+          jointType: JointType.round,
         ),
       );
-    }
 
-    setState(() {});
+      // Static markers: driver's starting point and the fixed pickup pin.
+      _addMarkers();
+
+      if (!_cameraMoved) {
+        _cameraMoved = true;
+
+        final bounds = LatLngBounds(
+          southwest: LatLng(
+            math.min(
+              _currentLocation!.latitude,
+              _pickupLocation!.latitude,
+            ),
+            math.min(
+              _currentLocation!.longitude,
+              _pickupLocation!.longitude,
+            ),
+          ),
+          northeast: LatLng(
+            math.max(
+              _currentLocation!.latitude,
+              _pickupLocation!.latitude,
+            ),
+            math.max(
+              _currentLocation!.longitude,
+              _pickupLocation!.longitude,
+            ),
+          ),
+        );
+
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngBounds(
+            bounds,
+            80,
+          ),
+        );
+      }
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (_) {
+    } finally {
+      _isDrawingRoute = false;
+    }
   }
 
-  List<LatLng> _decodePolyline(String encoded) {
+  List<LatLng> _decodePolyline(String encoded, {double precision = 1E5}) {
     List<LatLng> poly = [];
 
     int index = 0;
@@ -278,8 +394,8 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
 
       poly.add(
         LatLng(
-          lat / 1E6,
-          lng / 1E6,
+          lat / precision,
+          lng / precision,
         ),
       );
     }
@@ -287,90 +403,103 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
     return poly;
   }
 
-  Future<void> _addMarkers() async {
-    if (_mapController == null) return;
-
-    if (_currentLocation != null) {
-      if (_driverMarker == null) {
-        _driverMarker = await _mapController!.addCircle(
-          CircleOptions(
-            geometry: _currentLocation!,
-            circleRadius: 8,
-            circleColor: "#2962FF",
-            circleStrokeWidth: 2,
-            circleStrokeColor: "#FFFFFF",
-          ),
-        );
-      } else {
-        await _mapController!.updateCircle(
-          _driverMarker!,
-          CircleOptions(
-            geometry: _currentLocation!,
-          ),
-        );
-      }
-    }
+  void _addMarkers() {
+    _markers.removeWhere(
+          (m) => m.markerId.value == "pickup",
+    );
 
     if (_pickupLocation != null) {
-      if (_pickupMarker == null) {
-        _pickupMarker = await _mapController!.addCircle(
-          CircleOptions(
-            geometry: _pickupLocation!,
-            circleRadius: 8,
-            circleColor: "#FF0000",
-            circleStrokeWidth: 2,
-            circleStrokeColor: "#FFFFFF",
+
+      _markers.add(
+        Marker(
+          markerId: const MarkerId("pickup"),
+          position: _pickupLocation!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
           ),
-        );
-      } else {
-        await _mapController!.updateCircle(
-          _pickupMarker!,
-          CircleOptions(
-            geometry: _pickupLocation!,
+          infoWindow: InfoWindow(
+            title: widget.trip.currentJourneyLeg?.from,
           ),
-        );
-      }
+        ),
+      );
+
     }
+
+  }
+
+  Future<void> _refreshNavigation() async {
+    if (_currentLocation == null) return;
+
+    _mapController?.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: _currentLocation!,
+          zoom: 18,
+          tilt: 60,
+          bearing: _currentPosition?.heading ?? 0,
+        ),
+      ),
+    );
+
+    await _drawRoute();
   }
 
   @override
   Widget build(BuildContext context) {
     ViewUtil viewUtil = ViewUtil(context);
     BasicWidgets basicWidgets = BasicWidgets();
-    final vm = context.watch<AuthViewModel>();
+    final vm =  context.watch<TripViewModel>();
     final cusVm = context.watch<HomeViewModel>();
     return Scaffold(
       backgroundColor: AppColors.primary,
-      body: Stack(
+      body: vm.isLoading
+      ? basicWidgets.loading()
+      : Stack(
         children: [
-          Positioned.fill(
-            child: MapLibreMap(
-              styleString: "https://tiles.openfreemap.org/styles/liberty",
+          SizedBox(
+            height: 700,
+            width: double.infinity,
+            child: GoogleMap(
               initialCameraPosition: CameraPosition(
-                target: _currentLocation ?? const LatLng(13.0827, 80.2707),
+                target: _currentLocation ??
+                    const LatLng(13.0827, 80.2707),
                 zoom: _currentLocation == null ? 4 : 16,
               ),
-              myLocationEnabled: true,
-              myLocationTrackingMode: MyLocationTrackingMode.tracking,
-              compassEnabled: true,
-              rotateGesturesEnabled: true,
-              zoomGesturesEnabled: true,
-                onMapCreated: (controller) {
-                  _mapController = controller;
-                  _addMarkers();
-                  if (_currentLocation != null) {
-                    _mapController?.animateCamera(
-                      CameraUpdate.newCameraPosition(
-                        CameraPosition(
-                          target: _currentLocation!,
-                          zoom: 16,
-                          tilt: 50,
-                          bearing: _currentPosition?.heading ?? 0,
+              myLocationEnabled: false,
+              myLocationButtonEnabled: false,
+              zoomControlsEnabled: false,
+              compassEnabled: false,
+              markers: _markers,
+              polylines: _polylines,
+              onMapCreated: (GoogleMapController controller) {
+                if (!mounted) return;
+
+                _mapController = controller;
+                _mapReady = true;
+                setState(() {});
+
+                _addMarkers();
+
+                if (_currentLocation != null) {
+                  Future.delayed(
+                    const Duration(milliseconds: 300),
+                        () {
+                      if (!mounted || !_mapReady) return;
+
+                      controller.animateCamera(
+                        CameraUpdate.newCameraPosition(
+                          CameraPosition(
+                            target: _currentLocation!,
+                            zoom: 18,
+                            bearing: _currentPosition?.heading ?? 0,
+                            tilt: 60,
+                          ),
                         ),
-                      ),
-                    );
-                  }
+                      );
+                    },
+                  );
                 }
+              },
             ),
           ),
           Positioned(
@@ -381,21 +510,36 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
                 Navigator.pop(context);
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(.15),
-                      blurRadius: 10,
-                    )
-                  ],
-                ),
-                child: Icon(Icons.arrow_back_outlined)
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(.15),
+                        blurRadius: 10,
+                      )
+                    ],
+                  ),
+                  child: Icon(Icons.arrow_back_outlined)
+              ),
+            ),
+          ),
+          Positioned(
+            right: 16,
+            bottom: 430,
+            child: FloatingActionButton(
+              heroTag: "refreshRoute",
+              backgroundColor: Colors.white,
+              mini: true,
+              onPressed: _refreshNavigation,
+              child: const Icon(
+                Icons.refresh,
+                color: Colors.blue,
+                size: 20,
               ),
             ),
           ),
@@ -440,20 +584,12 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
                           CrossAxisAlignment.start,
                           children: [
                             Text(
-                              widget.trip.origin.location,
+                              widget.trip.currentJourneyLeg?.from ??'',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: viewUtil.isTablet ?22 :16,
                               ),
                             ),
-                            SizedBox(height: 4),
-                            Text(
-                              "${widget.trip.origin.city},${widget.trip.origin.state}",
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: viewUtil.isTablet ?16 :13,
-                              ),
-                            )
                           ],
                         ),
                       )
@@ -499,7 +635,7 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
                           child: Column(
                             children: [
                               Text(
-                                "Distance",
+                                "Estimated Distance",
                                 style: TextStyle(
                                   color: Colors.grey,
                                   fontSize: viewUtil.isTablet ?20 :12,
@@ -529,7 +665,7 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
                           child: Column(
                             children: [
                               Text(
-                                "ETA",
+                                "Estimated Time",
                                 style: TextStyle(
                                   color: Colors.grey,
                                   fontSize: viewUtil.isTablet ?20 :12,
@@ -545,6 +681,26 @@ class _PickupScreenState extends State<PickupScreen> with SingleTickerProviderSt
                               )
                             ],
                           ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 14,
+                        color: Colors.grey,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "Estimated values • Tap Refresh to update",
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: viewUtil.isTablet ? 16 : 12,
+                          fontStyle: FontStyle.italic,
                         ),
                       ),
                     ],

@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/features/fuel_entry/view/upload_fuel_entry.dart';
-import 'package:tranzoop_mobile_app/features/fuel_entry/view/view_fuel_bill.dart';
-import 'package:tranzoop_mobile_app/features/fuel_entry/viewmodel/fuel_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/current_trip_model.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/features/bills/view/upload_fuel_entry.dart';
+import 'package:bizoop_driver_app/features/bills/view/view_fuel_bill.dart';
+import 'package:bizoop_driver_app/features/bills/viewmodel/fuel_viewmodel.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/current_trip_model.dart';
 
 class FuelEntryScreen extends StatefulWidget {
   final CurrentTrip trip;

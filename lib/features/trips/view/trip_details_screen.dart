@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/trip_model.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/trips/model/trip_model.dart';
 
 class TripDetailsScreen extends StatefulWidget {
   final TripData trip;
@@ -17,7 +17,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
     "Reached Pickup",
     "Ready For Loading",
     "Documents Pending",
-    "Ready To Star
+    "Ready To Start",
     "In Transit",
     "Unloading",
     "Delivery OTP Pending",
@@ -36,6 +36,18 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     ViewUtil viewUtil = ViewUtil(context);
+    if (widget.trip.journeyLegs.isEmpty) {
+      return const Scaffold(
+        body: Center(
+          child: Text("No journey leg available"),
+        ),
+      );
+    }
+
+    final currentLeg = widget.trip.journeyLegs.firstWhere(
+          (leg) => leg.legNo == widget.trip.currentLeg,
+      orElse: () => widget.trip.journeyLegs.first,
+    );
     return Scaffold(
       backgroundColor: AppColors.primary,
       body: SingleChildScrollView(
@@ -122,7 +134,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                           ),
                           Container(
                             width: 2,
-                            height: viewUtil.isTablet ?75 :60,
+                            height: viewUtil.isTablet ?75 :65,
                             color: Colors.grey.shade300,
                           ),
                           Icon(
@@ -146,13 +158,13 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               ),
                             ),
                             Text(
-                              "${widget.trip.origin.location},${widget.trip.origin.city},${widget.trip.origin.state}",
+                              currentLeg.from,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: viewUtil.isTablet ?20 :14,
                               ),
                             ),
-                            const SizedBox(height: 25),
+                            const SizedBox(height: 20),
                             Text(
                               "Delivery Location",
                               style: TextStyle(
@@ -161,7 +173,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                               ),
                             ),
                             Text(
-                              "${widget.trip.destination.location},${widget.trip.destination.city},${widget.trip.destination.state}",
+                              currentLeg.to,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: viewUtil.isTablet ?20 :14,
@@ -180,7 +192,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       child: _infoCard(
                         Icons.inventory_2_outlined,
                         "Cargo",
-                        widget.trip.commodity,
+                        currentLeg.commodity,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -188,7 +200,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       child: _infoCard(
                         Icons.scale,
                         "Weight",
-                        "${widget.trip.weight}${widget.trip.uom}",
+                        "${currentLeg.weight}${currentLeg.uom}",
                       ),
                     ),
                   ],
@@ -200,7 +212,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       child: _infoCard(
                         Icons.directions_car,
                         "Vehicle",
-                        widget.trip.vehicle.regNo,
+                        widget.trip.vehicleId?.regNo ?? "N/A",
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -208,7 +220,7 @@ class _TripDetailsScreenState extends State<TripDetailsScreen> {
                       child: _infoCard(
                         Icons.person,
                         "Driver",
-                        widget.trip.driver1.name,
+                        currentLeg.driver1?.name ?? "N/A",
                       ),
                     ),
                   ],

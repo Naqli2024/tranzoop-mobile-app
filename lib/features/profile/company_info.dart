@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/features/auth/viewmodel/auth_viewmodel.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/features/auth/viewmodel/auth_viewmodel.dart';
 import 'package:intl/intl.dart';
 
 class CompanyInfoScreen extends StatefulWidget {
@@ -30,7 +30,10 @@ class _CompanyInfoScreenState extends State<CompanyInfoScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xffF5F7FB),
-      appBar: basicWidgets.buildAppBarWithRadius(context: context, title: 'Company Information'),
+      appBar: basicWidgets.buildAppBarWithRadius(context: context, title: 'Company Information',
+          onBackPressed: () {
+            Navigator.pop(context);
+          }),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(

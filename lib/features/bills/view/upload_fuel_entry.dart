@@ -4,12 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/features/fuel_entry/model/fuel_bill_model.dart';
-import 'package:tranzoop_mobile_app/features/fuel_entry/model/fuel_model.dart';
-import 'package:tranzoop_mobile_app/features/fuel_entry/viewmodel/fuel_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/current_trip_model.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/features/bills/model/fuel_bill_model.dart';
+import 'package:bizoop_driver_app/features/bills/model/fuel_model.dart';
+import 'package:bizoop_driver_app/features/bills/viewmodel/fuel_viewmodel.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/current_trip_model.dart';
 
 class UploadFuelEntry extends StatefulWidget {
   final CurrentTrip trip;

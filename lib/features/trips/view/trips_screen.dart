@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/viewmodel/home_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/trip_model.dart';
-import 'package:tranzoop_mobile_app/features/trips/view/trip_details_screen.dart';
-import 'package:tranzoop_mobile_app/features/trips/viewmodel/trip_viewmodel.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/homeScreen/viewmodel/home_viewmodel.dart';
+import 'package:bizoop_driver_app/features/trips/model/trip_model.dart';
+import 'package:bizoop_driver_app/features/trips/view/trip_details_screen.dart';
+import 'package:bizoop_driver_app/features/trips/viewmodel/trip_viewmodel.dart';
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
@@ -22,6 +22,7 @@ class _TripsScreenState extends State<TripsScreen> {
   final FocusNode searchFocusNode = FocusNode();
   final TextEditingController searchController = TextEditingController();
   late List<TripData> filteredTrips;
+  bool _initialLoading = true;
 
   @override
   void initState() {
@@ -43,14 +44,29 @@ class _TripsScreenState extends State<TripsScreen> {
 
   Future<void> _loadTrips() async {
     if (!mounted) return;
-    final homeVm = context.read<HomeViewModel>();
-    await homeVm.fetchDriverData();
 
-    if (!mounted) return;
-    final history = homeVm.driverData?.data.tripHistory ?? [];
-    await context.read<TripViewModel>().fetchTrips(history);
+    setState(() {
+      _initialLoading = true;
+    });
 
-    if (!mounted) return;
+    try {
+      final homeVm = context.read<HomeViewModel>();
+      final tripVm = context.read<TripViewModel>();
+
+      await homeVm.fetchDriverData();
+
+      if (!mounted) return;
+
+      final history = homeVm.driverData?.data.tripHistory ?? [];
+
+      await tripVm.fetchTrips(history);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _initialLoading = false;
+        });
+      }
+    }
   }
 
   List<TripData> getFilteredTrips(List<TripData> allTrips) {
@@ -78,13 +94,25 @@ class _TripsScreenState extends State<TripsScreen> {
 
     final query = searchController.text.trim().toLowerCase();
 
-    if (query.isEmpty) return trips;
+    if (query.isEmpty) {
+      return trips;
+    }
 
     return trips.where((trip) {
+      if (trip.journeyLegs.isEmpty) {
+        return trip.tripNo.toLowerCase().contains(query) ||
+            trip.tripStatus.toLowerCase().contains(query);
+      }
+
+      final currentLeg = trip.journeyLegs.firstWhere(
+            (leg) => leg.legNo == trip.currentLeg,
+        orElse: () => trip.journeyLegs.first,
+      );
+
       return trip.tripNo.toLowerCase().contains(query) ||
-          trip.origin.location.toLowerCase().contains(query) ||
-          trip.destination.location.toLowerCase().contains(query) ||
-          trip.commodity.toLowerCase().contains(query) ||
+          currentLeg.from.toLowerCase().contains(query) ||
+          currentLeg.to.toLowerCase().contains(query) ||
+          currentLeg.commodity.toLowerCase().contains(query) ||
           trip.tripStatus.toLowerCase().contains(query);
     }).toList();
   }
@@ -270,7 +298,7 @@ class _TripsScreenState extends State<TripsScreen> {
               ),
               const SizedBox(height: 10),
               Expanded(
-                child: tripVm.isLoading
+                child: _initialLoading || tripVm.isLoading
                     ? basicWidgets.loading()
                     : filteredTrips.isEmpty
                     ? _buildEmptyState()
@@ -349,6 +377,15 @@ class _TripsScreenState extends State<TripsScreen> {
       itemCount: trips.length,
       itemBuilder: (context, index) {
         final trip = trips[index];
+
+        if (trip.journeyLegs.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final currentLeg = trip.journeyLegs.firstWhere(
+              (leg) => leg.legNo == trip.currentLeg,
+          orElse: () => trip.journeyLegs.first,
+        );
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           padding: EdgeInsets.symmetric(vertical: viewUtil.isTablet ?16 :5),
@@ -389,7 +426,7 @@ class _TripsScreenState extends State<TripsScreen> {
                         trip.tripNo,
                         style: GoogleFonts.rajdhani(
                           fontSize: viewUtil.isTablet ?24 :18,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.bold,
                           color: AppColors.btnColor,
                         ),
                       ),
@@ -459,7 +496,7 @@ class _TripsScreenState extends State<TripsScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                "${trip.origin.location},${trip.origin.city},${trip.origin.state}",
+                                currentLeg.from,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: viewUtil.isTablet ?22 :14,
@@ -467,7 +504,7 @@ class _TripsScreenState extends State<TripsScreen> {
                               ),
                               SizedBox(height: viewUtil.isTablet ?24 :28),
                               Text(
-                                "${trip.destination.location},${trip.destination.city},${trip.destination.state}",
+                                currentLeg.to,
                                 style: TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: viewUtil.isTablet ?22 :14,
@@ -485,14 +522,14 @@ class _TripsScreenState extends State<TripsScreen> {
                           child: _infoTile(
                             Icons.inventory_2_outlined,
                             "Cargo",
-                            trip.commodity,
+                            currentLeg.commodity,
                           ),
                         ),
                         Expanded(
                           child: _infoTile(
                             Icons.scale,
                             "Weight",
-                            "${trip.weight}${trip.uom}",
+                            "${currentLeg.weight}${currentLeg.uom}",
                           ),
                         ),
                       ],

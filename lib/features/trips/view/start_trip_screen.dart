@@ -1,30 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:maplibre_gl/maplibre_gl.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/CommonSuccessScreen.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/current_trip_model.dart';
-import 'package:tranzoop_mobile_app/features/auth/viewmodel/auth_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/viewmodel/home_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/loading_unloading/view/unloading_screen.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/customer_model.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/trip_model.dart';
-import 'package:tranzoop_mobile_app/features/trips/service/route_service.dart';
-import 'package:tranzoop_mobile_app/features/trips/view/in_transit_screen.dart';
-import 'package:tranzoop_mobile_app/features/trips/viewmodel/trip_viewmodel.dart';
+import 'package:bizoop_driver_app/core/CommonSuccessScreen.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/current_trip_model.dart';
+import 'package:bizoop_driver_app/features/auth/viewmodel/auth_viewmodel.dart';
+import 'package:bizoop_driver_app/features/homeScreen/viewmodel/home_viewmodel.dart';
+import 'package:bizoop_driver_app/features/loading_unloading/view/unloading_screen.dart';
+import 'package:bizoop_driver_app/features/trips/model/customer_model.dart';
+import 'package:bizoop_driver_app/features/trips/model/trip_model.dart';
+import 'package:bizoop_driver_app/features/trips/service/route_service.dart';
+import 'package:bizoop_driver_app/features/trips/view/in_transit_screen.dart';
+import 'package:bizoop_driver_app/features/trips/viewmodel/trip_viewmodel.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'dart:math' as math;
 
 class StartTripScreen extends StatefulWidget {
   final CurrentTrip trip;
 
-  const StartTripScreen({
-    super.key,
-    required this.trip
-  });
+  const StartTripScreen({super.key, required this.trip});
 
   @override
   State<StartTripScreen> createState() => _StartTripScreenState();
@@ -34,14 +32,13 @@ class _StartTripScreenState extends State<StartTripScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-  final TextEditingController odometerController = TextEditingController();
   final RouteService _routeService = RouteService();
   BasicWidgets basicWidgets = BasicWidgets();
-  MapLibreMapController? _mapController;
+  GoogleMapController? _mapController;
   LatLng? _currentLocation;
   LatLng? _destinationLocation;
-  List<LatLng> _routePoints = [];
-  bool _mapReady = false;
+  Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
 
   @override
   void initState() {
@@ -55,12 +52,7 @@ class _StartTripScreenState extends State<StartTripScreen>
     _animation = Tween<double>(
       begin: -5,
       end: 5,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -72,20 +64,14 @@ class _StartTripScreenState extends State<StartTripScreen>
   Future<void> startTrip() async {
     final vm = context.read<TripViewModel>();
     final success = await vm.startTrip(
-      widget.trip.id,
-      StartTripRequest(
-      startOdometer: double.parse(
-        odometerController.text.trim(),
-      ),
-    ),);
+      widget.trip.id
+    );
     if (!mounted) return;
 
     if (success) {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => InTransitScreen(trip: widget.trip),
-        ),
+        MaterialPageRoute(builder: (_) => InTransitScreen(trip: widget.trip)),
       );
     } else {
       basicWidgets.error(context, vm.errorMessage);
@@ -104,44 +90,32 @@ class _StartTripScreenState extends State<StartTripScreen>
   }
 
   Future<void> _getCurrentLocation() async {
-    bool serviceEnabled =
-    await Geolocator.isLocationServiceEnabled();
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
 
     if (!serviceEnabled) {
       await Geolocator.openLocationSettings();
       return;
     }
 
-    LocationPermission permission =
-    await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
 
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
 
-    if (permission == LocationPermission.deniedForever) {
-      return;
-    }
+    if (permission == LocationPermission.deniedForever) return;
 
-    Position position =
-    await Geolocator.getCurrentPosition(
+    Position position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.best,
     );
 
-    _currentLocation = LatLng(
-      position.latitude,
-      position.longitude,
-    );
+    _currentLocation = LatLng(position.latitude, position.longitude);
   }
 
   Future<void> _getDestinationLocation() async {
-    String address =
-        "${widget.trip.destination.location}, "
-        "${widget.trip.destination.city}, "
-        "${widget.trip.destination.state}";
+    String address = widget.trip.currentJourneyLeg?.to ?? '';
 
-    List<Location> locations =
-    await locationFromAddress(address);
+    List<Location> locations = await locationFromAddress(address);
 
     if (locations.isNotEmpty) {
       _destinationLocation = LatLng(
@@ -152,11 +126,7 @@ class _StartTripScreenState extends State<StartTripScreen>
   }
 
   Future<void> _drawRoute() async {
-    if (_currentLocation == null ||
-        _destinationLocation == null ||
-        _mapController == null) {
-      return;
-    }
+    if (_currentLocation == null || _destinationLocation == null) return;
 
     final result = await _routeService.getRoute(
       startLat: _currentLocation!.latitude,
@@ -166,90 +136,67 @@ class _StartTripScreenState extends State<StartTripScreen>
     );
 
     if (result == null) return;
+    if (!mounted) return;
 
-    final trip = result["trip"];
+    final route = (result["routes"] as List).first;
+    final overviewPolyline = route["overview_polyline"]["points"];
 
-    final shape = trip["legs"][0]["shape"];
+    final points = _decodePolyline(overviewPolyline);
 
-    _routePoints = _decodePolyline(shape);
-
-    await _mapController!.clearLines();
-
-    await _mapController!.addLine(
-      LineOptions(
-        geometry: _routePoints,
-        lineColor: "#2962FF",
-        lineWidth: 5,
+    _polylines = {
+      Polyline(
+        polylineId: const PolylineId("route"),
+        points: points,
+        color: Colors.blue,
+        width: 5,
+        geodesic: true,
+        startCap: Cap.roundCap,
+        endCap: Cap.roundCap,
+        jointType: JointType.round,
       ),
-    );
+    };
 
-    await _addMarkers();
+    _markers = {
+      Marker(
+        markerId: const MarkerId("current"),
+        position: _currentLocation!,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        infoWindow: const InfoWindow(title: "Current Location"),
+      ),
+      Marker(
+        markerId: const MarkerId("destination"),
+        position: _destinationLocation!,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        infoWindow: InfoWindow(title: widget.trip.currentJourneyLeg?.to ??''),
+      ),
+    };
 
-    await _fitCamera();
+    setState(() {});
+
+    _fitCamera();
   }
 
-  Future<void> _addMarkers() async {
-    if (_mapController == null) return;
-
-    await _mapController!.clearSymbols();
-
-    await _mapController!.addSymbol(
-      SymbolOptions(
-        geometry: _currentLocation!,
-        iconImage: "marker-15",
-        textField: "You",
-      ),
-    );
-
-    await _mapController!.addSymbol(
-      SymbolOptions(
-        geometry: _destinationLocation!,
-        iconImage: "marker-15",
-        textField: "Destination",
-      ),
-    );
-  }
-
-  Future<void> _fitCamera() async {
-    if (_mapController == null ||
-        _currentLocation == null ||
-        _destinationLocation == null) {
+  void _fitCamera() {
+    if (_currentLocation == null ||
+        _destinationLocation == null ||
+        _mapController == null)
       return;
-    }
 
-    await _mapController!.animateCamera(
-      CameraUpdate.newLatLngBounds(
-        LatLngBounds(
-          southwest: LatLng(
-            _currentLocation!.latitude <
-                _destinationLocation!.latitude
-                ? _currentLocation!.latitude
-                : _destinationLocation!.latitude,
-            _currentLocation!.longitude <
-                _destinationLocation!.longitude
-                ? _currentLocation!.longitude
-                : _destinationLocation!.longitude,
-          ),
-          northeast: LatLng(
-            _currentLocation!.latitude >
-                _destinationLocation!.latitude
-                ? _currentLocation!.latitude
-                : _destinationLocation!.latitude,
-            _currentLocation!.longitude >
-                _destinationLocation!.longitude
-                ? _currentLocation!.longitude
-                : _destinationLocation!.longitude,
-          ),
-        ),
-        left: 60,
-        right: 60,
-        top: 120,
-        bottom: 350,
+    final bounds = LatLngBounds(
+      southwest: LatLng(
+        math.min(_currentLocation!.latitude, _destinationLocation!.latitude),
+        math.min(_currentLocation!.longitude, _destinationLocation!.longitude),
+      ),
+      northeast: LatLng(
+        math.max(_currentLocation!.latitude, _destinationLocation!.latitude),
+        math.max(_currentLocation!.longitude, _destinationLocation!.longitude),
       ),
     );
+
+    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 70));
   }
 
-  List<LatLng> _decodePolyline(String encoded) {
+  List<LatLng> _decodePolyline(String encoded, {double precision = 1E5}) {
     List<LatLng> poly = [];
 
     int index = 0;
@@ -267,8 +214,7 @@ class _StartTripScreenState extends State<StartTripScreen>
         shift += 5;
       } while (b >= 0x20);
 
-      int dlat = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
-      lat += dlat;
+      lat += ((result & 1) != 0) ? ~(result >> 1) : (result >> 1);
 
       shift = 0;
       result = 0;
@@ -279,15 +225,9 @@ class _StartTripScreenState extends State<StartTripScreen>
         shift += 5;
       } while (b >= 0x20);
 
-      int dlng = (result & 1) != 0 ? ~(result >> 1) : (result >> 1);
-      lng += dlng;
+      lng += ((result & 1) != 0) ? ~(result >> 1) : (result >> 1);
 
-      poly.add(
-        LatLng(
-          lat / 1E6,
-          lng / 1E6,
-        ),
-      );
+      poly.add(LatLng(lat / precision, lng / precision));
     }
 
     return poly;
@@ -296,7 +236,6 @@ class _StartTripScreenState extends State<StartTripScreen>
   @override
   Widget build(BuildContext context) {
     final viewUtil = ViewUtil(context);
-    final vm = context.watch<AuthViewModel>();
     final cusVm = context.watch<HomeViewModel>();
     return Scaffold(
       backgroundColor: AppColors.primary,
@@ -306,20 +245,19 @@ class _StartTripScreenState extends State<StartTripScreen>
             height: MediaQuery.of(context).size.height * .30,
             child: Stack(
               children: [
-                MapLibreMap(
-                    styleString: "https://tiles.openfreemap.org/styles/liberty",
-                    initialCameraPosition: CameraPosition(
-                      target: _currentLocation ?? const LatLng(13.0827, 80.2707),
-                      zoom: _currentLocation == null ? 4 : 16,
-                    ),
-                    myLocationEnabled: true,
-                    myLocationTrackingMode: MyLocationTrackingMode.tracking,
-                    compassEnabled: true,
-                    rotateGesturesEnabled: true,
-                    zoomGesturesEnabled: true,
+                GoogleMap(
+                  initialCameraPosition: CameraPosition(
+                    target: _currentLocation ?? const LatLng(13.0827, 80.2707),
+                    zoom: 14,
+                  ),
+                  myLocationEnabled: false,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  compassEnabled: false,
+                  markers: _markers,
+                  polylines: _polylines,
                   onMapCreated: (controller) async {
                     _mapController = controller;
-                    _mapReady = true;
 
                     if (_currentLocation != null &&
                         _destinationLocation != null) {
@@ -345,8 +283,7 @@ class _StartTripScreenState extends State<StartTripScreen>
             child: Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius:
-                BorderRadius.vertical(top: Radius.circular(30)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
               ),
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(18),
@@ -364,124 +301,28 @@ class _StartTripScreenState extends State<StartTripScreen>
                 ),
               ),
             ),
-          )
+          ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        top: false,
-        child: SizedBox(
-          height: viewUtil.isTablet ? 110 : 120,
-          child: BottomAppBar(
-            color: Colors.white,
-            elevation: 10,
-            child: basicWidgets.buildSlideActionButton(
-              context: context,
-              animation: _animation,
-              text: "Start Trip",
-              isTablet: viewUtil.isTablet,
-              outerColor: AppColors.btnColor,
-              innerColor: const Color(0xff6889da),
-              onSubmit: _showArrivalBottomSheet,
-            ),
+      bottomNavigationBar: SizedBox(
+        height: viewUtil.isTablet ? 110 : 120,
+        child: BottomAppBar(
+          color: Colors.white,
+          elevation: 10,
+          child: basicWidgets.buildSlideActionButton(
+            context: context,
+            animation: _animation,
+            text: "Start Trip",
+            isTablet: viewUtil.isTablet,
+            outerColor: AppColors.btnColor,
+            innerColor: const Color(0xff6889da),
+            onSubmit: () => startTrip(),
           ),
         ),
       ),
     );
   }
 
-  Future<void> _showArrivalBottomSheet() async {
-    odometerController.clear();
-    await showModalBottomSheet(
-      context: context,
-      isDismissible: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(24),
-        ),
-      ),
-      builder: (context) {
-        final viewUtil = ViewUtil(context);
-
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 50,
-                height: 5,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-              Icon(
-                Icons.flag_circle,
-                color: Colors.green,
-                size: viewUtil.isTablet ? 45 : 34,
-              ),
-              const SizedBox(height: 10),
-              Text(
-                "Trip Start Details",
-                style: TextStyle(
-                  fontSize: viewUtil.isTablet ? 24 : 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              basicWidgets.buildTextField(
-                "Enter Start Odometer Reading *",
-                odometerController,
-                context: context,
-                isNumber: true,
-              ),
-              const SizedBox(height: 15),
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.btnColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  onPressed: () async {
-                    if (odometerController.text.trim().isEmpty) {
-                      BasicWidgets().error(
-                        context,
-                        "Please enter odometer reading",
-                      );
-                      return;
-                    }
-                    Navigator.pop(context);
-                    await startTrip();
-                  },
-                  child: const Text(
-                    "Start Trip",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 10),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   Widget _tripReadyCard(ViewUtil viewUtil) {
     return Container(
@@ -500,21 +341,19 @@ class _StartTripScreenState extends State<StartTripScreen>
               color: Colors.green.shade50,
               border: Border.all(color: Colors.green),
             ),
-            child: Icon(Icons.check,
-                color: Colors.green, size: 30),
+            child: Icon(Icons.check, color: Colors.green, size: 30),
           ),
           const SizedBox(width: 15),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   "Ready to start your trip",
                   style: TextStyle(
                     fontSize: viewUtil.isTablet ? 22 : 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.green
+                    color: Colors.green,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -523,7 +362,7 @@ class _StartTripScreenState extends State<StartTripScreen>
                 ),
               ],
             ),
-          )
+          ),
         ],
       ),
     );
@@ -535,9 +374,7 @@ class _StartTripScreenState extends State<StartTripScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.btnColor.withOpacity(.2),
-        ),
+        border: Border.all(color: AppColors.btnColor.withOpacity(.2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(.06),
@@ -554,73 +391,56 @@ class _StartTripScreenState extends State<StartTripScreen>
               Icon(
                 Icons.my_location,
                 color: Colors.green,
-                size: viewUtil.isTablet ?30 :20,
+                size: viewUtil.isTablet ? 30 : 20,
               ),
               Container(
                 width: 2,
-                height: viewUtil.isTablet ?75 :70,
+                height: viewUtil.isTablet ? 75 : 70,
                 color: Colors.grey.shade300,
               ),
               Icon(
                 Icons.flag,
                 color: Colors.red,
-                size: viewUtil.isTablet ?30 :20,
+                size: viewUtil.isTablet ? 30 : 20,
               ),
             ],
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
-              crossAxisAlignment:
-              CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   "Current Location",
                   style: TextStyle(
                     color: Colors.grey,
-                    fontSize: viewUtil.isTablet ?18 :12,
+                    fontSize: viewUtil.isTablet ? 18 : 12,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  widget.trip.origin.location,
+                  widget.trip.currentJourneyLeg?.from ?? '',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: viewUtil.isTablet ?20 :15,
+                    fontSize: viewUtil.isTablet ? 20 : 15,
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  "${widget.trip.origin.city},${widget.trip.origin.state}",
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: viewUtil.isTablet ?16 :13,
-                  ),
-                ),
-                const SizedBox(height: 25),
+                const SizedBox(height: 20),
                 Text(
                   "Delivery Location",
                   style: TextStyle(
                     color: Colors.grey,
-                    fontSize: viewUtil.isTablet ?18 :12,
+                    fontSize: viewUtil.isTablet ? 18 : 12,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  widget.trip.destination.location,
+                  widget.trip.currentJourneyLeg?.to ??'',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    fontSize: viewUtil.isTablet ?20 :15,
+                    fontSize: viewUtil.isTablet ? 20 : 15,
                   ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  "${widget.trip.destination.city},${widget.trip.destination.state}",
-                  style: TextStyle(
-                    color: Colors.grey,
-                    fontSize: viewUtil.isTablet ?16 :13,
-                  ),
-                )
               ],
             ),
           ),
@@ -636,9 +456,7 @@ class _StartTripScreenState extends State<StartTripScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.btnColor.withOpacity(.2),
-        ),
+        border: Border.all(color: AppColors.btnColor.withOpacity(.2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(.06),
@@ -670,7 +488,7 @@ class _StartTripScreenState extends State<StartTripScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      customer?.companyName ??'',
+                      customer?.companyName ?? '',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: viewUtil.isTablet ? 22 : 17,
@@ -678,7 +496,7 @@ class _StartTripScreenState extends State<StartTripScreen>
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      customer?.contactPerson ??'',
+                      customer?.contactPerson ?? '',
                       style: TextStyle(
                         color: Colors.grey.shade700,
                         fontSize: viewUtil.isTablet ? 17 : 13,
@@ -688,7 +506,7 @@ class _StartTripScreenState extends State<StartTripScreen>
                 ),
               ),
               GestureDetector(
-                onTap: () => _callCustomer(customer?.mobile.toString() ??''),
+                onTap: () => _callCustomer(customer?.mobile.toString() ?? ''),
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -703,7 +521,7 @@ class _StartTripScreenState extends State<StartTripScreen>
                     children: [
                       Icon(
                         Icons.call,
-                        size: viewUtil.isTablet ?25 :15,
+                        size: viewUtil.isTablet ? 25 : 15,
                         color: Colors.white,
                       ),
                       SizedBox(width: 5),
@@ -711,7 +529,7 @@ class _StartTripScreenState extends State<StartTripScreen>
                         "Call",
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: viewUtil.isTablet ?18 :11,
+                          fontSize: viewUtil.isTablet ? 18 : 11,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -733,7 +551,7 @@ class _StartTripScreenState extends State<StartTripScreen>
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  customer?.billingAddress ??'',
+                  customer?.billingAddress ?? '',
                   style: TextStyle(
                     color: Colors.grey.shade700,
                     fontSize: viewUtil.isTablet ? 17 : 13,
@@ -752,10 +570,7 @@ class _StartTripScreenState extends State<StartTripScreen>
 
     final uri = Uri.parse("tel:$mobileNo");
 
-    await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
 
   Widget _cargoCard(ViewUtil viewUtil) {
@@ -764,9 +579,7 @@ class _StartTripScreenState extends State<StartTripScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: AppColors.btnColor.withOpacity(.2),
-        ),
+        border: Border.all(color: AppColors.btnColor.withOpacity(.2)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(.06),
@@ -777,8 +590,8 @@ class _StartTripScreenState extends State<StartTripScreen>
       ),
       child: Column(
         children: [
-          _row("Commodity", widget.trip.commodity),
-          _row("Weight", "${widget.trip.weight} Ton"),
+          _row("Commodity", widget.trip.currentJourneyLeg?.commodity ??''),
+          _row("Weight", "${widget.trip.currentJourneyLeg?.weight}${widget.trip.currentJourneyLeg?.uom}"),
           _row("Trip No", widget.trip.tripNo),
           _row("Status", widget.trip.tripStatus),
         ],
@@ -788,18 +601,12 @@ class _StartTripScreenState extends State<StartTripScreen>
 
   Widget _row(String title, String value) {
     return Padding(
-      padding:
-      const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
           Text(title),
           const Spacer(),
-          Text(
-            value,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-            ),
-          )
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
         ],
       ),
     );

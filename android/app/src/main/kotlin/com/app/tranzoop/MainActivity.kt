@@ -1,4 +1,4 @@
-package com.example.tranzoop_mobile_app
+package com.app.bizoop
 
 import io.flutter.embedding.android.FlutterActivity
 

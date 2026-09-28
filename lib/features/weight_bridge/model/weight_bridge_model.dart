@@ -4,13 +4,13 @@ class WeighbridgeRequest {
   final double grossWeight;
   final double weighbridgeFee;
   final String uom;
-  final File receipt;
+  final File? receipt;
 
   WeighbridgeRequest({
     required this.grossWeight,
     required this.weighbridgeFee,
     required this.uom,
-    required this.receipt,
+    this.receipt,
   });
 }
 

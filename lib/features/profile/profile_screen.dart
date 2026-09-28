@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/auth/viewmodel/auth_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/profile/company_info.dart';
-import 'package:tranzoop_mobile_app/features/profile/notification_screen.dart';
-import 'package:tranzoop_mobile_app/features/profile/personal_info.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/auth/viewmodel/auth_viewmodel.dart';
+import 'package:bizoop_driver_app/features/profile/company_info.dart';
+import 'package:bizoop_driver_app/features/profile/notification_screen.dart';
+import 'package:bizoop_driver_app/features/profile/personal_info.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -143,9 +143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           children: [
                             _statItem(vm.driver?.data?.totalTrips.toString() ?? "", "Trips"),
                             _divider(),
-                            _statItem(vm.driver?.data?.experience.toString() ?? "", "Years"),
-                            _divider(),
-                            _statItem(vm.driver?.data?.score.toString() ?? "", "Score"),
+                            _statItem(vm.driver?.data?.experience.toString() ??'', "Years of Experience"),
                           ],
                         ),
                       ),
@@ -186,18 +184,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => CompanyInfoScreen(businessId: vm.driver?.data?.businessId ??''),
-                                  ),
-                                );
-                              },
-                            ),
-                            profileTile(
-                              Icons.notifications_none,
-                              "Notifications",
-                              () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => NotificationScreen(),
                                   ),
                                 );
                               },

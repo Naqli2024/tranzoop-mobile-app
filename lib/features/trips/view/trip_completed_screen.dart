@@ -1,13 +1,16 @@
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'dart:math';
 
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/current_trip_model.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/view/dashboard_screen.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/view/home_screen.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/current_trip_model.dart';
+import 'package:bizoop_driver_app/features/homeScreen/view/dashboard_screen.dart';
+import 'package:bizoop_driver_app/features/homeScreen/view/home_screen.dart';
+import 'package:bizoop_driver_app/features/inspection/view/post_trip_inspection.dart';
+import 'package:bizoop_driver_app/features/inspection/viewmodel/inspection_viewmodel.dart';
 
 class TripCompletedScreen extends StatefulWidget {
   final CurrentTrip trip;
@@ -21,8 +24,8 @@ class TripCompletedScreen extends StatefulWidget {
 class _TripCompletedScreenState
     extends State<TripCompletedScreen> {
   late ConfettiController _confettiController;
-
   final BasicWidgets basicWidgets = BasicWidgets();
+  bool showPostInspectionButton = false;
 
   @override
   void initState() {
@@ -36,6 +39,17 @@ class _TripCompletedScreenState
       const Duration(milliseconds: 300),
           () => _confettiController.play(),
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final vm = context.read<InspectionViewModel>();
+
+      await vm.fetchAllPostTripInspection(widget.trip.id);
+
+      if (vm.failedPostInspectionId != null) {
+        setState(() {
+          showPostInspectionButton = true;
+        });
+      }
+    });
   }
 
   @override
@@ -206,12 +220,12 @@ class _TripCompletedScreenState
                         children: [
                           summaryTile(
                             "Pickup",
-                            "${widget.trip.origin.location},\n${widget.trip.origin.city},${widget.trip.origin.state}",
+                            widget.trip.currentJourneyLeg?.from ?? '',
                             Icons.location_on_outlined,
                           ),
                           summaryTile(
                             "Delivery",
-                            "${widget.trip.destination.location},\n${widget.trip.destination.city},${widget.trip.destination.state}",
+                            widget.trip.currentJourneyLeg?.to ?? '',
                             Icons.location_on_outlined,
                           ),
                           summaryTile(
@@ -230,7 +244,23 @@ class _TripCompletedScreenState
                     ),
                     const SizedBox(height: 25),
                     const Spacer(),
-                    basicWidgets.buildCommonButton(context, "Back To Dashboard", (){
+                    if (showPostInspectionButton)
+                      basicWidgets.buildCommonButton(
+                        context,
+                        "Post Trip Inspection",
+                            (){
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PostTripInspectionScreen(
+                                trip: widget.trip,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  SizedBox(height: 10),
+                  basicWidgets.buildCommonButton(context, "Back To Dashboard", (){
                       Navigator.push(
                         context,
                         MaterialPageRoute(

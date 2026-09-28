@@ -3,16 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/CommonSuccessScreen.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/current_trip_model.dart';
-import 'package:tranzoop_mobile_app/features/auth/viewmodel/auth_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/viewmodel/home_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/inspection/view/post_trip_inspection.dart';
-import 'package:tranzoop_mobile_app/features/trips/model/trip_model.dart';
-import 'package:tranzoop_mobile_app/features/trips/viewmodel/trip_viewmodel.dart';
+import 'package:bizoop_driver_app/core/CommonSuccessScreen.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/current_trip_model.dart';
+import 'package:bizoop_driver_app/features/auth/viewmodel/auth_viewmodel.dart';
+import 'package:bizoop_driver_app/features/homeScreen/viewmodel/home_viewmodel.dart';
+import 'package:bizoop_driver_app/features/inspection/view/post_trip_inspection.dart';
+import 'package:bizoop_driver_app/features/trips/model/trip_model.dart';
+import 'package:bizoop_driver_app/features/trips/view/trip_completed_screen.dart';
+import 'package:bizoop_driver_app/features/trips/viewmodel/trip_viewmodel.dart';
 
 class DeliveryConfirmationScreen extends StatefulWidget {
   final CurrentTrip trip;
@@ -88,16 +89,7 @@ class _DeliveryConfirmationScreenState
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => CommonSuccessScreen(
-            title: "Delivery Confirmed",
-            message: vm.successMessage,
-            nextStep: "Proceed to Post Trip Inspection",
-            buttonText: "Continue",
-            showNextStep: true,
-            nextStepIcon: Icons.verified_user_outlined,
-            showSummaryCard: false,
-            nextScreen: PostTripInspectionScreen(trip: widget.trip),
-          ),
+          builder: (_) => TripCompletedScreen(trip: widget.trip),
         ),
       );
     } else {
@@ -161,6 +153,7 @@ class _DeliveryConfirmationScreenState
   Widget build(BuildContext context) {
     ViewUtil viewUtil = ViewUtil(context);
     final cusVm = context.watch<HomeViewModel>();
+    final vm = context.watch<TripViewModel>();
     return Scaffold(
       backgroundColor: AppColors.primary,
       body: SafeArea(
@@ -241,7 +234,7 @@ class _DeliveryConfirmationScreenState
                       ),
                     ),
               const Spacer(),
-              basicWidgets.buildCommonButton(context, 'Verify OTP', verifyOtp),
+              basicWidgets.buildCommonButton(context, 'Verify OTP', verifyOtp, isLoading: vm.isLoading),
               const SizedBox(height: 15),
             ],
           ),

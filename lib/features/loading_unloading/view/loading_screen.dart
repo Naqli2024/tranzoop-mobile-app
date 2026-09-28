@@ -1,16 +1,19 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/CommonSuccessScreen.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/current_trip_model.dart';
-import 'package:tranzoop_mobile_app/features/loading_unloading/model/loading_unloading_model.dart';
-import 'package:tranzoop_mobile_app/features/loading_unloading/viewmodal/loading_unloading_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/trips/view/in_transit_screen.dart';
-import 'package:tranzoop_mobile_app/features/trips/viewmodel/trip_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/weight_bridge/view/weight_bridge_screen.dart';
+import 'package:bizoop_driver_app/core/CommonSuccessScreen.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/current_trip_model.dart';
+import 'package:bizoop_driver_app/features/loading_unloading/model/loading_unloading_model.dart';
+import 'package:bizoop_driver_app/features/loading_unloading/viewmodal/loading_unloading_viewmodel.dart';
+import 'package:bizoop_driver_app/features/trips/view/in_transit_screen.dart';
+import 'package:bizoop_driver_app/features/trips/viewmodel/trip_viewmodel.dart';
+import 'package:bizoop_driver_app/features/weight_bridge/view/weight_bridge_screen.dart';
+
 
 class LoadingScreen extends StatefulWidget {
   final CurrentTrip trip;
@@ -25,9 +28,13 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
   late AnimationController _animationController;
   late DateTime loadingStartTime;
   final TextEditingController weightController = TextEditingController();
+  final TextEditingController amountController = TextEditingController();
   BasicWidgets basicWidgets = BasicWidgets();
+  final ImagePicker picker = ImagePicker();
+  bool visibleCargo = false;
   Timer? _timer;
   int _seconds = 0;
+  File? billImage;
 
   @override
   void initState() {
@@ -82,12 +89,16 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
       basicWidgets.error(context, "Please enter loaded weight");
       return;
     }
+    if (amountController.text.trim().isEmpty) {
+      basicWidgets.error(context, "Please enter amount");
+      return;
+    }
 
     final request = LoadingRequest(
       loadingStartTime: loadingStartTime.toUtc(),
       loadingEndTime: DateTime.now().toUtc(),
       loadedWeight: double.parse(weightController.text.trim()),
-      loadedBy: widget.trip.origin.location,
+      loadedBy: widget.trip.currentJourneyLeg?.from ?? '',
     );
 
     final success = await vm.loadingTrip(
@@ -111,15 +122,15 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
             summaryItems: [
               SummaryItem(
                 label: "Pickup Location",
-                value: widget.trip.origin.location,
+                value: widget.trip.currentJourneyLeg?.from ?? '',
               ),
               SummaryItem(
                 label: "Delivery Location",
-                value: widget.trip.destination.location,
+                value: widget.trip.currentJourneyLeg?.to ?? '',
               ),
               SummaryItem(
                 label: "Loaded Weight",
-                value: "${weightController.text} Tons",
+                value: "${weightController.text} ${widget.trip.currentJourneyLeg?.uom ?? ''}",
               ),
               SummaryItem(
                 label: "Loading Time",
@@ -135,6 +146,40 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
     }
   }
 
+  Future<void> upload() async {
+    final vm = context.read<LoadingUnloadingViewmodel>();
+    if (amountController.text.trim().isEmpty) {
+      basicWidgets.error(context, "Please enter amount");
+      return;
+    }
+
+    final request = LoadingUnloadingExpenseRequest(
+      expenseType: "Loading",
+      amount: double.parse(amountController.text),
+      bill: billImage!,
+    );
+
+    final success = await vm.loadingUnloadingExpense(
+      widget.trip.id,
+      request,
+    );
+
+    if (!mounted) return;
+
+    if (success) {
+      basicWidgets.error(
+        context,
+        vm.successMessage,
+      );
+    } else {
+      basicWidgets.error(
+        context,
+        vm.errorMessage,
+      );
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     ViewUtil viewUtil = ViewUtil(context);
@@ -145,7 +190,9 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
       context: context,
       title: "Loading",
     ),
-      body: SingleChildScrollView(
+      body: vm.isLoading
+        ? basicWidgets.loading()
+        : SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
@@ -192,10 +239,47 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
             ),
             const SizedBox(height: 20),
             Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10,horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade300),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(.08),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  uploadBillWidget(),
+                  const SizedBox(height: 20),
+                  basicWidgets.buildTextField(
+                    "Loading Amount",
+                    amountController,
+                    context: context,
+                    isNumber: true
+                  ),
+                  basicWidgets.buildTextField("Loaded Weight", weightController, context: context, isNumber: true),
+                  const SizedBox(height: 30),
+                  basicWidgets.buildCommonButton(
+                    context,
+                    "Upload",
+                    upload,
+                    isLoading: context.watch<LoadingUnloadingViewmodel>().isLoading,
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: Colors.grey.shade300),
                 boxShadow: [
                   BoxShadow(
@@ -207,171 +291,61 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
               ),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      Icon(Icons.inventory_2_outlined,color: AppColors.btnColor,size: viewUtil.isTablet ?30 :20),
-                      SizedBox(width: 8),
-                      Text(
-                        "Cargo Details",
-                        style: basicWidgets.coloredText(context, AppColors.btnColor, viewUtil.isTablet ?22 :16, FontWeight.w500)
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  _detailRow("Trip ID", widget.trip.tripNo),
-                  const Divider(),
-                  _detailRow("Items", widget.trip.commodity),
-                  const Divider(),
-                  _detailRow("Consignment Weight", "${widget.trip.weight}${widget.trip.uom}"),
-                  const Divider(),
-                  _detailRow("Status", "In Progress"),
-                  const Divider(),
-                  basicWidgets.buildTextField("Loaded Weight", weightController, context: context),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.grey.shade300),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(.05),
-                    blurRadius: 12,
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.route,
-                        color: AppColors.btnColor,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        "Route Information",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w500,
-                          fontSize: viewUtil.isTablet ?22 :16,
-                          color: AppColors.btnColor
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Column(
-                        children: [
-                          Container(
-                            height: 16,
-                            width: 16,
-                            decoration: const BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                            ),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        visibleCargo = !visibleCargo;
+                      });
+                    },
+                    child: Row(
+                      children: [
+                        Icon(Icons.inventory_2_outlined,color: AppColors.btnColor,size: viewUtil.isTablet ?30 :20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            "Cargo Details",
+                            style: basicWidgets.coloredText(context, AppColors.btnColor, viewUtil.isTablet ?22 :16, FontWeight.w500)
                           ),
-                          Container(
-                            width: 2,
-                            height: 60,
-                            color: Colors.grey.shade300,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(width: 15),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Pickup",
-                              style: TextStyle(
-                                color: Colors.grey,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              widget.trip.origin.location,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Text(
-                              "${widget.trip.origin.city},${widget.trip.origin.state}",
-                              style: TextStyle(
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
                         ),
-                      ),
-                    ],
+                        Icon(visibleCargo ?Icons.arrow_drop_up :Icons.arrow_drop_down_outlined)
+                      ],
+                    ),
                   ),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        height: 16,
-                        width: 16,
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 15),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Destination",
-                              style: TextStyle(
-                                color: Colors.grey,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              widget.trip.destination.location,
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            Text(
-                              "${widget.trip.destination.city},${widget.trip.destination.state}",
-                              style: TextStyle(
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  Visibility(
+                    visible: visibleCargo,
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 20),
+                        _detailRow("Trip ID", widget.trip.tripNo),
+                        const Divider(),
+                        _detailRow("Items", widget.trip.currentJourneyLeg?.commodity ?? ''),
+                        const Divider(),
+                        _detailRow("Consignment Weight", "${widget.trip.currentJourneyLeg?.weight}${widget.trip.currentJourneyLeg?.uom}"),
+                        const Divider(),
+                        _detailRow("Status", "In Progress"),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            basicWidgets.buildSlideActionButton(
-              context: context,
-              animation: _animation,
-              text: "Done Loading",
-              isTablet: viewUtil.isTablet,
-              outerColor: AppColors.btnColor,
-              innerColor: const Color(0xff6889da),
-              onSubmit: () => _completeLoading(vm),
-            ),
+            const SizedBox(height: 30),
           ],
         ),
       ),
+        bottomNavigationBar: BottomAppBar(
+          height: viewUtil.isTablet ?90 :125,
+          color: Colors.transparent,
+          child: basicWidgets.buildSlideActionButton(
+            context: context,
+            animation: _animation,
+            text: "Done Loading",
+            isTablet: viewUtil.isTablet,
+            outerColor: AppColors.btnColor,
+            innerColor: const Color(0xff6889da),
+            onSubmit: () =>  _completeLoading(vm),
+          ),
+        )
     );
   }
 
@@ -388,6 +362,129 @@ class _LoadingScreenState extends State<LoadingScreen> with SingleTickerProvider
           )),
         ],
       ),
+    );
+  }
+
+  Future<void> _pickBill(ImageSource source) async {
+    final XFile? image = await picker.pickImage(
+      source: source,
+      imageQuality: 80,
+    );
+
+    if (image != null) {
+      setState(() {
+        billImage = File(image.path);
+      });
+    }
+  }
+
+  void _showImagePicker() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(20),
+        ),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt),
+                title: const Text("Take Photo"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickBill(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text("Choose from Gallery"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickBill(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget uploadBillWidget() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Upload Loading Bill",
+          style: TextStyle(
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 10),
+        GestureDetector(
+          onTap: _showImagePicker,
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: (billImage == null)
+                ? const Padding(
+              padding: EdgeInsets.all(25),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.cloud_upload_outlined,
+                    size: 45,
+                  ),
+                  SizedBox(height: 10),
+                  Text("Tap to Upload Bill"),
+                ],
+              ),
+            )
+                : Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    billImage!,
+                    height: 200,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  )
+                ),
+                Positioned(
+                  top: 10,
+                  right: 10,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        billImage = null;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

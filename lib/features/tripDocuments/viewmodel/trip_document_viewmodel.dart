@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:tranzoop_mobile_app/core/utils/shared_preferences.dart';
-import 'package:tranzoop_mobile_app/features/tripDocuments/model/trip_document_model.dart';
-import 'package:tranzoop_mobile_app/features/tripDocuments/service/trip_document_service.dart';
+import 'package:bizoop_driver_app/core/utils/shared_preferences.dart';
+import 'package:bizoop_driver_app/features/tripDocuments/model/trip_document_model.dart';
+import 'package:bizoop_driver_app/features/tripDocuments/service/trip_document_service.dart';
 
 class TripDocumentViewModel extends ChangeNotifier {
   final TripDocumentService _documentService = TripDocumentService();

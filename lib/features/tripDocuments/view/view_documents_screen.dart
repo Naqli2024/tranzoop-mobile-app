@@ -3,9 +3,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/features/tripDocuments/viewmodel/trip_document_viewmodel.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/features/tripDocuments/viewmodel/trip_document_viewmodel.dart';
 
 class ViewDocumentsScreen extends StatefulWidget {
   final String docType;
@@ -43,6 +43,9 @@ class _ViewDocumentsScreenState extends State<ViewDocumentsScreen> {
       appBar: basicWidgets.buildAppBarWithRadius(
         context: context,
         title: widget.docType,
+        onBackPressed: () {
+          Navigator.pop(context);
+        }
       ),
 
       body: Padding(

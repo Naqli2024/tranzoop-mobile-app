@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/viewmodel/home_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/tripDocuments/view/trip_documents_screen.dart';
-import 'package:tranzoop_mobile_app/features/trips/viewmodel/trip_viewmodel.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/homeScreen/viewmodel/home_viewmodel.dart';
+import 'package:bizoop_driver_app/features/tripDocuments/view/trip_documents_screen.dart';
+import 'package:bizoop_driver_app/features/trips/viewmodel/trip_viewmodel.dart';
 
 class DocumentsScreen extends StatefulWidget {
   const DocumentsScreen({super.key});
@@ -18,6 +18,7 @@ class DocumentsScreen extends StatefulWidget {
 class _DocumentsScreenState extends State<DocumentsScreen> {
   BasicWidgets basicWidgets = BasicWidgets();
   String selectedFilter = "Month";
+  bool _initialLoading = true;
 
   @override
   void initState() {
@@ -29,14 +30,26 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
 
   Future<void> _loadTrips() async {
     if (!mounted) return;
-    final homeVm = context.read<HomeViewModel>();
-    await homeVm.fetchDriverData();
 
-    if (!mounted) return;
-    final history = homeVm.driverData?.data.tripHistory ?? [];
-    await context.read<TripViewModel>().fetchTrips(history);
+    try {
+      final homeVm = context.read<HomeViewModel>();
+      final tripVm = context.read<TripViewModel>();
 
-    if (!mounted) return;
+      await homeVm.fetchDriverData();
+
+      if (!mounted) return;
+
+      final history =
+          homeVm.driverData?.data.tripHistory ?? [];
+
+      await tripVm.fetchTrips(history);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _initialLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -59,13 +72,48 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
           children: [
             const SizedBox(height: 15),
             Expanded(
-              child: tripVm.isLoading
+              child: _initialLoading || tripVm.isLoading
                 ? basicWidgets.loading()
-                : ListView.builder(
+                  : tripVm.trips.isEmpty
+                  ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.description_outlined,
+                      size: viewUtil.isTablet ? 100 : 70,
+                      color: Colors.grey,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      "No Trip Documents Found",
+                      style: TextStyle(
+                        fontSize: viewUtil.isTablet ? 24 : 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "There are no trip documents available.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: viewUtil.isTablet ? 18 : 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+                  : ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: tripVm.trips.length,
                 itemBuilder: (context, index) {
                   final trip = tripVm.trips[index];
+                  final currentLeg = trip.journeyLegs.firstWhere(
+                        (leg) => leg.legNo == trip.currentLeg,
+                    orElse: () => trip.journeyLegs.first,
+                  );
                   return Stack(
                     clipBehavior: Clip.none,
                     children: [
@@ -149,7 +197,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                                     CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        "${trip.origin.location},${trip.origin.city},${trip.origin.state}",
+                                        currentLeg.from,
                                         style: TextStyle(
                                           fontWeight: FontWeight.w600,
                                           fontSize: viewUtil.isTablet ?20 :14
@@ -157,7 +205,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                                       ),
                                       SizedBox(height: viewUtil.isTablet ?40 :28),
                                       Text(
-                                        "${trip.destination.location},${trip.destination.city},${trip.destination.state}",
+                                        currentLeg.to,
                                         style: TextStyle(
                                           fontWeight: FontWeight.w600,
                                             fontSize: viewUtil.isTablet ?20 :14
@@ -181,14 +229,14 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                                   size: viewUtil.isTablet ?22 :16,
                                 ),
                                 const SizedBox(width: 6),
-                                Text(trip.commodity,style: TextStyle(fontSize: viewUtil.isTablet ?20 :14),),
+                                Text(currentLeg.commodity,style: TextStyle(fontSize: viewUtil.isTablet ?20 :14),),
                                 const Spacer(),
                                 Icon(
                                   Icons.scale,
                                   size: viewUtil.isTablet ?22 :16,
                                 ),
                                 const SizedBox(width: 6),
-                                Text("${trip.weight}${trip.uom}",style: TextStyle(fontSize: viewUtil.isTablet ?20 :14)),
+                                Text("${currentLeg.weight}${currentLeg.uom}",style: TextStyle(fontSize: viewUtil.isTablet ?20 :14)),
                               ],
                             ),
                             const SizedBox(height: 12),

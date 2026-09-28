@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:tranzoop_mobile_app/core/utils/shared_preferences.dart';
-import 'package:tranzoop_mobile_app/features/inspection/model/inspection_model.dart';
-import 'package:tranzoop_mobile_app/features/inspection/service/inspection_service.dart';
+import 'package:bizoop_driver_app/core/utils/shared_preferences.dart';
+import 'package:bizoop_driver_app/features/inspection/model/inspection_model.dart';
+import 'package:bizoop_driver_app/features/inspection/service/inspection_service.dart';
 
 class InspectionViewModel extends ChangeNotifier {
   final InspectionService _service = InspectionService();
@@ -101,6 +101,7 @@ class InspectionViewModel extends ChangeNotifier {
 
       failedInspectionId = null;
       inspectionDetails = null;
+      inspectionStatus = "";
 
       final token = await _pref.getToken();
       final driverId = await _pref.getDriverId();
@@ -118,17 +119,32 @@ class InspectionViewModel extends ChangeNotifier {
         final json = jsonDecode(response.body);
 
         final List list = json["data"] ?? [];
-        final failedInspection = list.cast<Map<String, dynamic>>().firstWhere(
+
+        final inspections = list
+            .where(
               (e) =>
           e["inspectedBy"] == driverId &&
-              e["inspectionStatus"] == "Failed" &&
               e["tripId"]["_id"] == tripId,
-          orElse: () => {},
-        );
-        if (failedInspection.isNotEmpty) {
-          failedInspectionId = failedInspection["_id"];
+        )
+            .toList();
 
-          await fetchPreTripInspection(failedInspectionId!);
+        if (inspections.isNotEmpty) {
+          // Get the latest inspection
+          final latestInspection = inspections.last;
+
+          inspectionStatus =
+              latestInspection["inspectionStatus"]?.toString().trim() ?? "";
+
+          // If latest inspection is Failed, keep its ID
+          if (inspectionStatus?.toLowerCase() == "failed") {
+            failedInspectionId = latestInspection["_id"];
+
+            await fetchPreTripInspection(
+              failedInspectionId!,
+            );
+          }
+        } else {
+          debugPrint("No inspection found for this trip");
         }
       }
     } catch (e) {

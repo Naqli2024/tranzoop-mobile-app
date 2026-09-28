@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/CommonSuccessScreen.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/current_trip_model.dart';
-import 'package:tranzoop_mobile_app/features/trips/view/in_transit_screen.dart';
-import 'package:tranzoop_mobile_app/features/trips/view/start_trip_screen.dart';
-import 'package:tranzoop_mobile_app/features/weight_bridge/model/weight_bridge_model.dart';
-import 'package:tranzoop_mobile_app/features/weight_bridge/viewmodel/weight_bridge_viewmodel.dart';
+import 'package:bizoop_driver_app/core/CommonSuccessScreen.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/current_trip_model.dart';
+import 'package:bizoop_driver_app/features/trips/view/in_transit_screen.dart';
+import 'package:bizoop_driver_app/features/trips/view/start_trip_screen.dart';
+import 'package:bizoop_driver_app/features/weight_bridge/model/weight_bridge_model.dart';
+import 'package:bizoop_driver_app/features/weight_bridge/viewmodel/weight_bridge_viewmodel.dart';
 
 class WeightBridgeScreen extends StatefulWidget {
   final CurrentTrip trip;
@@ -41,10 +41,6 @@ class _WeightBridgeScreenState extends State<WeightBridgeScreen> {
   }
 
   Future<void> upload() async {
-    if (receiptImage == null) {
-      basicWidgets.error(context, "Upload Receipt");
-      return;
-    }
     final vm = context.read<WeighbridgeViewModel>();
     final request = WeighbridgeRequest(
       grossWeight: double.parse(grossWeightController.text.trim()),
@@ -52,7 +48,7 @@ class _WeightBridgeScreenState extends State<WeightBridgeScreen> {
         weighbridgeFeeController.text.trim(),
       ),
       uom: uomController.text.trim(),
-      receipt: receiptImage!,
+      receipt: receiptImage,
     );
 
     final success = await vm.uploadWeighbridge(
@@ -95,11 +91,11 @@ class _WeightBridgeScreenState extends State<WeightBridgeScreen> {
         child: Column(
           children: [
             uploadReceiptWidget(),
-            basicWidgets.buildTextField('Gross Weight', grossWeightController, context: context),
+            basicWidgets.buildTextField('Gross Weight', grossWeightController, context: context,isNumber: true),
             SizedBox(height:10),
             basicWidgets.buildTextField('UOM', uomController, context: context),
             SizedBox(height:10),
-            basicWidgets.buildTextField('Weight Bridge Amount', weighbridgeFeeController, context: context),
+            basicWidgets.buildTextField('Weight Bridge Amount', weighbridgeFeeController, context: context,isNumber: true),
             SizedBox(height:30),
             basicWidgets.buildCommonButton(context, 'Submit', () => upload(),isLoading: vm.isLoading)
           ],

@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:tranzoop_mobile_app/core/CommonSuccessScreen.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/shared_preferences.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/model/current_trip_model.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/view/home_screen.dart';
-import 'package:tranzoop_mobile_app/features/inspection/model/inspection_model.dart';
-import 'package:tranzoop_mobile_app/features/inspection/viewmodel/inspection_viewmodel.dart';
-import 'package:tranzoop_mobile_app/features/trips/view/pickup_screen.dart';
+import 'package:bizoop_driver_app/core/CommonSuccessScreen.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/shared_preferences.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/features/homeScreen/model/current_trip_model.dart';
+import 'package:bizoop_driver_app/features/homeScreen/view/home_screen.dart';
+import 'package:bizoop_driver_app/features/inspection/model/inspection_model.dart';
+import 'package:bizoop_driver_app/features/inspection/viewmodel/inspection_viewmodel.dart';
+import 'package:bizoop_driver_app/features/trips/view/pickup_screen.dart';
 
 class PreTripInspectionScreen extends StatefulWidget {
   final CurrentTrip trip;
@@ -199,34 +199,45 @@ class _PreTripInspectionScreenState extends State<PreTripInspectionScreen>
 
     if (!mounted) return;
 
+    // API request itself failed
     if (!success) {
-      basicWidgets.error(context, vm.errorMessage);
+      basicWidgets.error(
+        context,
+        vm.errorMessage,
+      );
       return;
     }
 
     await vm.fetchAllPreTripInspection(widget.trip.id);
 
-    if (vm.inspectionStatus == "Failed") {
+    if (!mounted) return;
+
+    print("Inspection Status from VM: '${vm.inspectionStatus}'");
+
+    final status = vm.inspectionStatus;
+
+    if (status == "Passed") {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CommonSuccessScreen(
+            title: "Inspection Completed!",
+            message: vm.successMessage,
+            nextStep: "Proceed to Pickup Location",
+            buttonText: "Navigate to Pickup",
+            nextStepIcon: Icons.location_on,
+            nextScreen: PickupScreen(
+              trip: widget.trip,
+            ),
+          ),
+        ),
+      );
+    } else {
       basicWidgets.error(
         context,
         "Inspection Failed. Please fix the issues before proceeding.",
       );
-      return;
     }
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            CommonSuccessScreen(
-              title: "Inspection Completed!",
-              message: vm.successMessage,
-              nextStep: "Proceed to Pickup Location",
-              buttonText: "Navigate to Pickup",
-              nextStepIcon: Icons.location_on,
-              nextScreen: PickupScreen(trip: widget.trip),
-            ),
-      ),
-    );
   }
 
   @override
@@ -283,7 +294,7 @@ class _PreTripInspectionScreenState extends State<PreTripInspectionScreen>
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: viewUtil.isTablet ? 18 : 14,
-                          color: Colors.grey.shade700,
+                          color: Colors.white,
                         ),
                       ),
                     ],
@@ -382,7 +393,7 @@ class _PreTripInspectionScreenState extends State<PreTripInspectionScreen>
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: viewUtil.isTablet ? 15 : 12,
-            color: Colors.grey.shade600,
+            color: Colors.white,
           ),
         ),
       ],

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/core/basic_widgets.dart';
-import 'package:tranzoop_mobile_app/core/utils/view_utils.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/core/basic_widgets.dart';
+import 'package:bizoop_driver_app/core/utils/view_utils.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -86,118 +86,94 @@ class _NotificationScreenState extends State<NotificationScreen> {
         itemCount: notifications.length,
         itemBuilder: (context, index) {
           final notification = notifications[index];
-          return Dismissible(
-            key: Key(index.toString()),
-            background: Container(
-              margin:
-              const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              alignment: Alignment.centerRight,
-              padding:
-              const EdgeInsets.only(right: 20),
-              child: const Icon(
-                Icons.delete,
-                color: Colors.white,
-              ),
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius:
+              BorderRadius.circular(18),
+              border: Border.all(color: AppColors.borderColor),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black
+                      .withOpacity(.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                )
+              ],
             ),
-            onDismissed: (_) {
-              setState(() {
-                notifications.removeAt(index);
-              });
-            },
-            child: Container(
-              margin:
-              const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius:
-                BorderRadius.circular(18),
-                border: Border.all(color: AppColors.borderColor),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black
-                        .withOpacity(.04),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  )
-                ],
-              ),
-              child: Row(
-                crossAxisAlignment:
-                CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: viewUtil.isTablet ? 62 :52,
-                    width: viewUtil.isTablet ? 62 :52,
-                    decoration: BoxDecoration(
-                      color: notification["color"]
-                          .withOpacity(.12),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      notification["icon"],
-                      color: notification["color"],
-                      size: viewUtil.isTablet ? 30 :20,
-                    ),
+            child: Row(
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
+              children: [
+                Container(
+                  height: viewUtil.isTablet ? 62 :52,
+                  width: viewUtil.isTablet ? 62 :52,
+                  decoration: BoxDecoration(
+                    color: notification["color"]
+                        .withOpacity(.12),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                notification["title"],
-                                style:
-                                TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: viewUtil.isTablet ? 22 :15,
-                                ),
+                  child: Icon(
+                    notification["icon"],
+                    color: notification["color"],
+                    size: viewUtil.isTablet ? 30 :20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment:
+                    CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              notification["title"],
+                              style:
+                              TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: viewUtil.isTablet ? 22 :15,
                               ),
                             ),
-                            if (!notification["read"])
-                              Container(
-                                height: 10,
-                                width: 10,
-                                decoration:
-                                const BoxDecoration(
-                                  color: Colors.red,
-                                  shape:
-                                  BoxShape.circle,
-                                ),
+                          ),
+                          if (!notification["read"])
+                            Container(
+                              height: 10,
+                              width: 10,
+                              decoration:
+                              const BoxDecoration(
+                                color: Colors.red,
+                                shape:
+                                BoxShape.circle,
                               ),
-                          ],
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        notification["message"],
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          height: 1.4,
+                          fontSize: viewUtil.isTablet ? 18 :14
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          notification["message"],
-                          style: TextStyle(
-                            color: Colors.grey.shade700,
-                            height: 1.4,
-                            fontSize: viewUtil.isTablet ? 18 :14
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        notification["time"],
+                        style: TextStyle(
+                          color:
+                          Colors.grey.shade500,
+                          fontSize: viewUtil.isTablet ? 18 :12,
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          notification["time"],
-                          style: TextStyle(
-                            color:
-                            Colors.grey.shade500,
-                            fontSize: viewUtil.isTablet ? 18 :12,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         },

@@ -45,7 +45,7 @@ class DriverSummary {
   final int cancelledTrips;
 
   final int totalDistance;
-  final int totalFuel;
+  final double totalFuel;
   final int fuelEntries;
   final int revenue;
 
@@ -78,7 +78,7 @@ class DriverSummary {
       runningTrips: json["runningTrips"] ?? 0,
       cancelledTrips: json["cancelledTrips"] ?? 0,
       totalDistance: json["totalDistance"] ?? 0,
-      totalFuel: json["totalFuel"] ?? 0,
+      totalFuel: (json["totalFuel"] as num?)?.toDouble() ?? 0.0,
       fuelEntries: json["fuelEntries"] ?? 0,
       revenue: json["revenue"] ?? 0,
       joiningDate: json["joiningDate"] ?? "",
@@ -94,7 +94,7 @@ class TripHistory {
   final String startTime;
   final int distanceTravelled;
   final int freightAmount;
-  final int totalFuelQuantity;
+  final double totalFuelQuantity;
 
   TripHistory({
     required this.tripId,
@@ -114,7 +114,22 @@ class TripHistory {
       startTime: json["startTime"] ?? "",
       distanceTravelled: json["distanceTravelled"] ?? 0,
       freightAmount: json["freightAmount"] ?? 0,
-      totalFuelQuantity: json["totalFuelQuantity"] ?? 0,
+      totalFuelQuantity: (json["totalFuelQuantity"] as num?)?.toDouble() ?? 0.0,
     );
   }
+}
+
+class DriverLocationRequest {
+  final double lat;
+  final double lng;
+
+  DriverLocationRequest({
+    required this.lat,
+    required this.lng,
+  });
+
+  Map<String, dynamic> toJson() => {
+    "lat": lat,
+    "lng": lng,
+  };
 }

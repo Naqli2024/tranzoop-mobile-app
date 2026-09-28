@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class CurrentTripResponse {
   final bool success;
   final CurrentTrip? data;
@@ -22,98 +24,59 @@ class CurrentTrip {
   final String businessId;
   final String fleetSource;
   final String vehicleId;
-  final String journeyType;
   final String vehicleCategory;
-  final String commodity;
-  final int weight;
-  final String uom;
-  final double freightAmount;
-  final double advanceAmount;
-  final String loadType;
-  final String paymentType;
-  final String customerId;
-  final String brokerId;
+  final String journeyType;
+  final int currentLeg;
+  final String tripStatus;
 
   final List<JourneyLeg> journeyLegs;
-  final int currentLeg;
-
-  final String lrNo;
-  final String driverId;
-
-  final double driverAdvance;
-  final double dieselAmount;
-  final double tollAmount;
-  final double loadingAmount;
-  final double unloadingAmount;
-  final double commissionAmount;
-  final double miscAmount;
-
-  final String tripStatus;
 
   final double totalFuelCost;
   final double totalFuelQuantity;
-  final int totalFuelEntries;
-
   final double totalExpense;
-  final int totalExpenseEntries;
-
   final double profit;
   final int distanceTravelled;
 
+  final List<dynamic> totalFuelEntries;
+  final List<dynamic> totalExpenseEntries;
+
   final String createdAt;
   final String updatedAt;
-  final String? pickupReachedAt;
-
   final String tripNo;
 
-  final Origin origin;
-  final Destination destination;
-  final Loading loading;
-  final Unloading unloading;
+  final Settlement settlement;
+  final JourneyLeg? currentJourneyLeg;
+
+  final dynamic loadingExpense;
+  final dynamic unloadingExpense;
+
+  final CurrentLegWeighbridge? currentLegWeighbridge;
 
   CurrentTrip({
     required this.id,
     required this.businessId,
     required this.fleetSource,
     required this.vehicleId,
-    required this.journeyType,
     required this.vehicleCategory,
-    required this.commodity,
-    required this.weight,
-    required this.uom,
-    required this.freightAmount,
-    required this.advanceAmount,
-    required this.loadType,
-    required this.paymentType,
-    required this.customerId,
-    required this.brokerId,
-    required this.journeyLegs,
+    required this.journeyType,
     required this.currentLeg,
-    required this.lrNo,
-    required this.driverId,
-    required this.driverAdvance,
-    required this.dieselAmount,
-    required this.tollAmount,
-    required this.loadingAmount,
-    required this.unloadingAmount,
-    required this.commissionAmount,
-    required this.miscAmount,
     required this.tripStatus,
+    required this.journeyLegs,
     required this.totalFuelCost,
     required this.totalFuelQuantity,
-    required this.totalFuelEntries,
     required this.totalExpense,
-    required this.totalExpenseEntries,
     required this.profit,
     required this.distanceTravelled,
+    required this.totalFuelEntries,
+    required this.totalExpenseEntries,
     required this.createdAt,
     required this.updatedAt,
-    this.pickupReachedAt,
     required this.tripNo,
-    required this.origin,
-    required this.destination,
-    required this.loading,
-    required this.unloading,
+    required this.settlement,
+    this.currentJourneyLeg,
+    this.loadingExpense,
+    this.unloadingExpense,
+    this.currentLegWeighbridge,
   });
 
   factory CurrentTrip.fromJson(Map<String, dynamic> json) {
@@ -122,122 +85,72 @@ class CurrentTrip {
       businessId: json["businessId"] ?? "",
       fleetSource: json["fleetSource"] ?? "",
       vehicleId: json["vehicleId"] ?? "",
-      journeyType: json["journeyType"] ?? "",
       vehicleCategory: json["vehicleCategory"] ?? "",
-      commodity: json["commodity"] ?? "",
-      weight: json["weight"] ?? 0,
-      uom: json["uom"] ?? "",
-      freightAmount: (json["freightAmount"] ?? 0).toDouble(),
-      advanceAmount: (json["advanceAmount"] ?? 0).toDouble(),
-      loadType: json["loadType"] ?? "",
-      paymentType: json["paymentType"] ?? "",
-      customerId: json["customerId"] ?? "",
-      brokerId: json["brokerId"] ?? "",
-      journeyLegs: (json["journeyLegs"] as List? ?? [])
-          .map((e) => JourneyLeg.fromJson(e))
-          .toList(),
+      journeyType: json["journeyType"] ?? "",
       currentLeg: json["currentLeg"] ?? 0,
-      lrNo: json["lrNo"] ?? "",
-      driverId: json["driver1"] ?? "",
-      driverAdvance: (json["driverAdvance"] ?? 0).toDouble(),
-      dieselAmount: (json["dieselAmount"] ?? 0).toDouble(),
-      tollAmount: (json["tollAmount"] ?? 0).toDouble(),
-      loadingAmount: (json["loadingAmount"] ?? 0).toDouble(),
-      unloadingAmount: (json["unloadingAmount"] ?? 0).toDouble(),
-      commissionAmount: (json["commissionAmount"] ?? 0).toDouble(),
-      miscAmount: (json["miscAmount"] ?? 0).toDouble(),
       tripStatus: json["tripStatus"] ?? "",
+
+      journeyLegs: (json["journeyLegs"] as List? ?? [])
+          .map(
+            (e) => JourneyLeg.fromJson(
+          Map<String, dynamic>.from(e),
+        ),
+      )
+          .toList(),
+
       totalFuelCost: (json["totalFuelCost"] ?? 0).toDouble(),
       totalFuelQuantity: (json["totalFuelQuantity"] ?? 0).toDouble(),
-      totalFuelEntries: json["totalFuelEntries"] ?? 0,
       totalExpense: (json["totalExpense"] ?? 0).toDouble(),
-      totalExpenseEntries: json["totalExpenseEntries"] ?? 0,
       profit: (json["profit"] ?? 0).toDouble(),
       distanceTravelled: json["distanceTravelled"] ?? 0,
+
+      totalFuelEntries:
+      List<dynamic>.from(json["totalFuelEntries"] ?? []),
+
+      totalExpenseEntries:
+      List<dynamic>.from(json["totalExpenseEntries"] ?? []),
+
       createdAt: json["createdAt"] ?? "",
       updatedAt: json["updatedAt"] ?? "",
-      pickupReachedAt: json["pickupReachedAt"],
       tripNo: json["tripNo"] ?? "",
-      origin: Origin.fromJson(json["origin"] ?? {}),
-      destination: Destination.fromJson(json["destination"] ?? {}),
-      loading: Loading.fromJson(json["loading"] ?? {}),
-      unloading: Unloading.fromJson(json["unloading"] ?? {}),
+
+      settlement: Settlement.fromJson(
+        json["settlement"] ?? {},
+      ),
+
+      currentJourneyLeg: json["currentJourneyLeg"] != null
+          ? JourneyLeg.fromJson(
+        Map<String, dynamic>.from(json["currentJourneyLeg"]),
+      )
+          : null,
+
+      loadingExpense: json["loadingExpense"],
+      unloadingExpense: json["unloadingExpense"],
+
+      currentLegWeighbridge: json["currentLegWeighbridge"] != null
+          ? CurrentLegWeighbridge.fromJson(
+        Map<String, dynamic>.from(
+          json["currentLegWeighbridge"],
+        ),
+      )
+          : null,
     );
   }
 }
 
-class Origin {
-  final String location;
-  final String city;
-  final String state;
-  final double latitude;
-  final double longitude;
+class Settlement {
+  final String status;
+  final double settledAmount;
 
-  Origin({
-    required this.location,
-    required this.city,
-    required this.state,
-    required this.latitude,
-    required this.longitude,
+  Settlement({
+    required this.status,
+    required this.settledAmount,
   });
 
-  factory Origin.fromJson(Map<String, dynamic> json) {
-    return Origin(
-      location: json["location"] ?? "",
-      city: json["city"] ?? "",
-      state: json["state"] ?? "",
-      latitude: (json["latitude"] ?? 0).toDouble(),
-      longitude: (json["longitude"] ?? 0).toDouble(),
-    );
-  }
-}
-
-class Destination {
-  final String location;
-  final String city;
-  final String state;
-  final double latitude;
-  final double longitude;
-
-  Destination({
-    required this.location,
-    required this.city,
-    required this.state,
-    required this.latitude,
-    required this.longitude,
-  });
-
-  factory Destination.fromJson(Map<String, dynamic> json) {
-    return Destination(
-      location: json["location"] ?? "",
-      city: json["city"] ?? "",
-      state: json["state"] ?? "",
-      latitude: (json["latitude"] ?? 0).toDouble(),
-      longitude: (json["longitude"] ?? 0).toDouble(),
-    );
-  }
-}
-
-class Loading {
-  final String status;
-
-  Loading({required this.status});
-
-  factory Loading.fromJson(Map<String, dynamic> json) {
-    return Loading(
+  factory Settlement.fromJson(Map<String, dynamic> json) {
+    return Settlement(
       status: json["status"] ?? "",
-    );
-  }
-}
-
-class Unloading {
-  final String status;
-
-  Unloading({required this.status});
-
-  factory Unloading.fromJson(Map<String, dynamic> json) {
-    return Unloading(
-      status: json["status"] ?? "",
+      settledAmount: (json["settledAmount"] ?? 0).toDouble(),
     );
   }
 }
@@ -246,10 +159,35 @@ class JourneyLeg {
   final int legNo;
   final String from;
   final String to;
+
   final String customerId;
   final String brokerId;
-  final String status;
+
+  final String commodity;
+  final double weight;
+  final String uom;
+
+  final double amountPerTon;
+  final double estimatedFreightAmount;
+
+  final String loadType;
+  final String paymentType;
+
+  final String driver1;
+  final double driverSalary;
+
+  final List<DriverAdvance> driverAdvance;
+
+  final String legStatus;
+
   final String id;
+
+  final LegLoading loading;
+  final LegUnloading unloading;
+  final LegPC pc;
+  final LegWeighbridge weighbridge;
+
+  final List<dynamic> tripExpense;
 
   JourneyLeg({
     required this.legNo,
@@ -257,8 +195,23 @@ class JourneyLeg {
     required this.to,
     required this.customerId,
     required this.brokerId,
-    required this.status,
+    required this.commodity,
+    required this.weight,
+    required this.uom,
+    required this.amountPerTon,
+    required this.estimatedFreightAmount,
+    required this.loadType,
+    required this.paymentType,
+    required this.driver1,
+    required this.driverSalary,
+    required this.driverAdvance,
+    required this.legStatus,
     required this.id,
+    required this.loading,
+    required this.unloading,
+    required this.pc,
+    required this.weighbridge,
+    required this.tripExpense,
   });
 
   factory JourneyLeg.fromJson(Map<String, dynamic> json) {
@@ -266,10 +219,148 @@ class JourneyLeg {
       legNo: json["legNo"] ?? 0,
       from: json["from"] ?? "",
       to: json["to"] ?? "",
+
       customerId: json["customerId"] ?? "",
       brokerId: json["brokerId"] ?? "",
-      status: json["status"] ?? "",
+
+      commodity: json["commodity"] ?? "",
+      weight: (json["weight"] ?? 0).toDouble(),
+      uom: json["uom"] ?? "",
+
+      amountPerTon: (json["amountPerTon"] ?? 0).toDouble(),
+      estimatedFreightAmount:
+      (json["estimatedFreightAmount"] ?? 0).toDouble(),
+
+      loadType: json["loadType"] ?? "",
+      paymentType: json["paymentType"] ?? "",
+
+      driver1: json["driver1"] ?? "",
+      driverSalary: (json["driverSalary"] ?? 0).toDouble(),
+
+      driverAdvance: (json["driverAdvance"] as List? ?? [])
+          .map(
+            (e) => DriverAdvance.fromJson(
+          Map<String, dynamic>.from(e),
+        ),
+      )
+          .toList(),
+
+      legStatus: json["legStatus"] ?? "",
       id: json["_id"] ?? "",
+
+      loading: LegLoading.fromJson(
+        json["loading"] ?? {},
+      ),
+
+      unloading: LegUnloading.fromJson(
+        json["unloading"] ?? {},
+      ),
+
+      pc: LegPC.fromJson(
+        json["PC"] ?? {},
+      ),
+
+      weighbridge: LegWeighbridge.fromJson(
+        json["weighbridge"] ?? {},
+      ),
+
+      tripExpense:
+      List<dynamic>.from(json["tripExpense"] ?? []),
+    );
+  }
+}
+
+class DriverAdvance {
+  final String date;
+  final double amount;
+  final String id;
+
+  DriverAdvance({
+    required this.date,
+    required this.amount,
+    required this.id,
+  });
+
+  factory DriverAdvance.fromJson(Map<String, dynamic> json) {
+    return DriverAdvance(
+      date: json["date"] ?? "",
+      amount: (json["amount"] ?? 0).toDouble(),
+      id: json["_id"] ?? "",
+    );
+  }
+}
+
+class LegLoading {
+  final String status;
+
+  LegLoading({
+    required this.status,
+  });
+
+  factory LegLoading.fromJson(Map<String, dynamic> json) {
+    return LegLoading(
+      status: json["status"] ?? "",
+    );
+  }
+}
+
+class LegUnloading {
+  final String status;
+
+  LegUnloading({
+    required this.status,
+  });
+
+  factory LegUnloading.fromJson(Map<String, dynamic> json) {
+    return LegUnloading(
+      status: json["status"] ?? "",
+    );
+  }
+}
+
+class LegPC {
+  final double amount;
+
+  LegPC({
+    required this.amount,
+  });
+
+  factory LegPC.fromJson(Map<String, dynamic> json) {
+    return LegPC(
+      amount: (json["amount"] ?? 0).toDouble(),
+    );
+  }
+}
+
+class LegWeighbridge {
+  final String status;
+
+  LegWeighbridge({
+    required this.status,
+  });
+
+  factory LegWeighbridge.fromJson(Map<String, dynamic> json) {
+    return LegWeighbridge(
+      status: json["status"] ?? "",
+    );
+  }
+}
+
+class CurrentLegWeighbridge {
+  final String status;
+  final String? fileUrl;
+
+  CurrentLegWeighbridge({
+    required this.status,
+    this.fileUrl,
+  });
+
+  factory CurrentLegWeighbridge.fromJson(
+      Map<String, dynamic> json,
+      ) {
+    return CurrentLegWeighbridge(
+      status: json["status"] ?? "",
+      fileUrl: json["fileUrl"],
     );
   }
 }

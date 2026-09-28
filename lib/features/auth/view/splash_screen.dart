@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:tranzoop_mobile_app/core/app_colors.dart';
-import 'package:tranzoop_mobile_app/features/auth/view/launch_screen.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/view/dashboard_screen.dart';
-import 'package:tranzoop_mobile_app/features/homeScreen/view/home_screen.dart';
+import 'package:bizoop_driver_app/core/app_colors.dart';
+import 'package:bizoop_driver_app/features/auth/view/launch_screen.dart';
+import 'package:bizoop_driver_app/features/homeScreen/view/dashboard_screen.dart';
+import 'package:bizoop_driver_app/features/homeScreen/view/home_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   final bool isLoggedIn;
@@ -26,6 +26,7 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _taglineFade;
   late final Animation<Offset> _taglineSlide;
   late final Animation<double> _exitFade;
+  late Future<void> _imagePreload;
 
   Timer? _navTimer;
 
@@ -73,8 +74,8 @@ class _SplashScreenState extends State<SplashScreen>
     // Gentle suspension bob for the truck.
     _truckBounceController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
 
     // Continuous dashed-road scroll to suggest forward motion.
     _roadScrollController = AnimationController(
@@ -95,7 +96,23 @@ class _SplashScreenState extends State<SplashScreen>
     _navTimer = Timer(const Duration(milliseconds: 3200), _goNext);
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    _imagePreload = precacheImage(
+      const AssetImage('assets/images/building.webp'),
+      context,
+    );
+  }
+
   Future<void> _goNext() async {
+    if (!mounted) return;
+
+    await Future.wait([
+      _imagePreload,
+      Future.delayed(const Duration(milliseconds: 2200)),
+    ]);
     if (!mounted) return;
     await _exitController.forward();
     if (!mounted) return; // guard context use after the async gap
@@ -162,14 +179,14 @@ class _SplashScreenState extends State<SplashScreen>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const SizedBox(height: 18),
-                            const AnimatedTranzoopText(),
+                            const AnimatedBizoopText(),
                               const SizedBox(height: 8),
                               SlideTransition(
                                 position: _taglineSlide,
                                 child: FadeTransition(
                                   opacity: _taglineFade,
                                   child: Text(
-                                    "SMART LOGISTICS • TRUSTED DELIVERY",
+                                    "ONE PLATFORM • EVERY BUSINESS NEED",
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w500,
@@ -186,10 +203,7 @@ class _SplashScreenState extends State<SplashScreen>
                       const SizedBox(height: 48),
                       FadeTransition(
                         opacity: _taglineFade,
-                        child: _TruckLoader(
-                          bounceController: _truckBounceController,
-                          roadController: _roadScrollController,
-                        ),
+                        child: _OrbitRingLoader(controller: _truckBounceController),
                       ),
                     ],
                   ),
@@ -203,43 +217,21 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-class _TruckLoader extends StatelessWidget {
-  final AnimationController bounceController;
-  final AnimationController roadController;
+class _OrbitRingLoader extends StatelessWidget {
+  final AnimationController controller;
 
-  const _TruckLoader({
-    required this.bounceController,
-    required this.roadController,
-  });
+  const _OrbitRingLoader({required this.controller});
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 140,
-      height: 48,
+      width: 56,
+      height: 56,
       child: AnimatedBuilder(
-        animation: Listenable.merge([bounceController, roadController]),
+        animation: controller,
         builder: (context, _) {
-          final bob = math.sin(bounceController.value * math.pi) * 3;
-          return Stack(
-            alignment: Alignment.bottomCenter,
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                bottom: 4,
-                left: 0,
-                right: 0,
-                child: _DashedLine(scroll: roadController.value),
-              ),
-              Positioned(
-                bottom: 10 + bob,
-                child: const Icon(
-                  Icons.local_shipping_rounded,
-                  color: Colors.white,
-                  size: 30,
-                ),
-              ),
-            ],
+          return CustomPaint(
+            painter: _OrbitRingPainter(t: controller.value),
           );
         },
       ),
@@ -247,75 +239,69 @@ class _TruckLoader extends StatelessWidget {
   }
 }
 
-class _DashedLine extends StatelessWidget {
-  final double scroll; // 0..1
+class _OrbitRingPainter extends CustomPainter {
+  final double t; // 0..1, loops continuously
 
-  const _DashedLine({required this.scroll});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 2,
-      width: double.infinity,
-      child: CustomPaint(
-        painter: _DashedLinePainter(scroll: scroll),
-      ),
-    );
-  }
-}
-
-class _DashedLinePainter extends CustomPainter {
-  final double scroll; // 0..1
-
-  _DashedLinePainter({required this.scroll});
-
-  static const double _dashWidth = 8;
-  static const double _dashSpace = 6;
-  static const double _segment = _dashWidth + _dashSpace;
+  _OrbitRingPainter({required this.t});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withOpacity(0.55)
-      ..strokeWidth = size.height
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 4;
+    final rotation = t * 2 * math.pi;
+
+    // Faint full track so the ring shape reads even before the arc passes.
+    final trackPaint = Paint()
+      ..color = Colors.white.withOpacity(0.15)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
       ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, trackPaint);
 
-    // Shifting by exactly one segment per loop keeps the pattern seamless
-    // when `scroll` wraps back from 1 to 0.
-    final shift = scroll * _segment;
-    var x = -_segment + shift;
-    final y = size.height / 2;
+    // Sweeping gradient arc — the "eye-catching" motion element.
+    final rect = Rect.fromCircle(center: center, radius: radius);
+    final arcPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round
+      ..shader = SweepGradient(
+        startAngle: 0,
+        endAngle: 2 * math.pi,
+        transform: GradientRotation(rotation),
+        colors: [
+          Colors.white.withOpacity(0.0),
+          Colors.white.withOpacity(0.9),
+        ],
+      ).createShader(rect);
 
-    while (x < size.width) {
-      final start = x.clamp(0.0, size.width);
-      final end = (x + _dashWidth).clamp(0.0, size.width);
-      if (end > start) {
-        canvas.drawLine(Offset(start, y), Offset(end, y), paint);
-      }
-      x += _segment;
-    }
+    canvas.drawArc(rect, rotation, math.pi * 1.1, false, arcPaint);
+
+    // Lead dot at the head of the arc for a crisp focal point.
+    final headAngle = rotation + math.pi * 1.1;
+    final headPos = center + Offset(math.cos(headAngle), math.sin(headAngle)) * radius;
+    canvas.drawCircle(headPos, 4, Paint()..color = Colors.white);
+    canvas.drawCircle(headPos, 8, Paint()..color = Colors.white.withOpacity(0.18));
   }
 
   @override
-  bool shouldRepaint(covariant _DashedLinePainter oldDelegate) =>
-      oldDelegate.scroll != scroll;
+  bool shouldRepaint(covariant _OrbitRingPainter oldDelegate) => oldDelegate.t != t;
 }
 
-class AnimatedTranzoopText extends StatefulWidget {
-  const AnimatedTranzoopText({super.key});
+class AnimatedBizoopText extends StatefulWidget {
+  const AnimatedBizoopText({super.key});
 
   @override
-  State<AnimatedTranzoopText> createState() =>
-      _AnimatedTranzoopTextState();
+  State<AnimatedBizoopText> createState() =>
+      _AnimatedBizoopTextState();
 }
 
-class _AnimatedTranzoopTextState
-    extends State<AnimatedTranzoopText>
+class _AnimatedBizoopTextState
+    extends State<AnimatedBizoopText>
     with SingleTickerProviderStateMixin {
 
   late AnimationController _controller;
 
-  final String word = "TRANZOOP";
+  final String word = "BIZOOP";
 
   @override
   void initState() {

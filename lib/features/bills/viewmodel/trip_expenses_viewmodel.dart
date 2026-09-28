@@ -1,85 +1,86 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
-import 'package:tranzoop_mobile_app/core/utils/shared_preferences.dart';
-import 'package:tranzoop_mobile_app/features/fuel_entry/model/fuel_bill_model.dart';
-import 'package:tranzoop_mobile_app/features/fuel_entry/service/fuel_api_service.dart';
-import '../model/fuel_model.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:bizoop_driver_app/core/utils/shared_preferences.dart';
+import 'package:bizoop_driver_app/features/bills/model/trip_expense_modal.dart';
+import 'package:bizoop_driver_app/features/bills/service/trip_expense_service.dart';
+import 'package:bizoop_driver_app/features/loading_unloading/model/loading_unloading_model.dart';
 
-class FuelViewModel extends ChangeNotifier {
-  final FuelService _service = FuelService();
+class TripExpenseViewModel extends ChangeNotifier {
+  final TripExpenseService _service = TripExpenseService();
   final SharedPrefService _pref = SharedPrefService();
+
   bool isLoading = false;
   String errorMessage = "";
   String successMessage = "";
-  FuelBillResponse? bills;
+  TripExpenseResponse? expenses;
 
-
-  Future<void> getFuelBills(String tripId) async {
+  Future<void> fetchExpenses(String tripId) async {
     try {
       isLoading = true;
       notifyListeners();
 
       final token = await _pref.getToken();
 
-      final response = await _service.getFuelBills(
-        token: token!,
+      if (token == null) return;
+
+      final response = await _service.getExpenses(
+        token: token,
         tripId: tripId,
       );
-
       if (response.statusCode == 200) {
-        bills = FuelBillResponse.fromJson(
+        expenses = TripExpenseResponse.fromJson(
           jsonDecode(response.body),
         );
       }
-
       errorMessage = "";
     } catch (e) {
+      print("fetchExpenses error: $e");
       errorMessage = e.toString();
     }
-
     isLoading = false;
     notifyListeners();
   }
 
-  Future<bool> uploadFuel(
-      BuildContext context,
-      String tripId,
-      FuelRequest request,
-      ) async {
+  Future<bool> updateExpense({
+    required String expenseId,
+    required LoadingUnloadingExpenseRequest request,
+  }) async {
+
     try {
       isLoading = true;
       notifyListeners();
-
       final token = await _pref.getToken();
 
       if (token == null) {
         errorMessage = "Token not found";
         return false;
       }
-      final response = await _service.uploadFuel(
+      final response = await _service.updateExpense(
+        expenseId: expenseId,
         token: token,
-        tripId: tripId,
         request: request,
       );
-
       successMessage = response.message;
       isLoading = false;
       notifyListeners();
       return true;
+
     } catch (e) {
       errorMessage = e.toString();
       isLoading = false;
       notifyListeners();
       return false;
+    } finally {
+      isLoading = false;
+      notifyListeners();
     }
   }
 
-  Future<bool> updateFuel(
-      BuildContext context,
-      String fuelId,
-      FuelRequest request,
-      ) async {
+  Future<bool> addExpense({
+    required String tripId,
+    required LoadingUnloadingExpenseRequest request,
+  }) async {
     try {
       isLoading = true;
       notifyListeners();
@@ -91,21 +92,24 @@ class FuelViewModel extends ChangeNotifier {
         return false;
       }
 
-      final response = await _service.updateFuel(
+      final response = await _service.uploadLoadingUnloadingExpense(
+        tripId: tripId,
         token: token,
-        fuelId: fuelId,
         request: request,
       );
 
       successMessage = response.message;
-      isLoading = false;
-      notifyListeners();
+      errorMessage = "";
+
+      await fetchExpenses(tripId);
+
       return true;
     } catch (e) {
       errorMessage = e.toString();
+      return false;
+    } finally {
       isLoading = false;
       notifyListeners();
-      return false;
     }
   }
 }
